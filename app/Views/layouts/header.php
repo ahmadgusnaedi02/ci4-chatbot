@@ -11,8 +11,7 @@
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@48,400,0,0" />
-    <link rel="stylesheet" href="<?= base_url('css/style.css') ?>">
-    <link rel="stylesheet" href="<?= base_url('css/chatbot.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('assets/css/style.css') ?>">
     <style>
         body {
             background-color: #f8f9fa;
@@ -43,4 +42,4 @@
     </style>
 </head>
 
-<body class="show-chatbot">
+<body>

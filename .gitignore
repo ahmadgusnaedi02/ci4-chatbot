@@ -1,0 +1,5 @@
+whatsapp-server/node_modules/
+whatsapp-server/sessions/
+whatsapp-server/data/
+whatsapp-server/*.log
+whatsapp-server/*.err

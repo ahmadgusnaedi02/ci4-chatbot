@@ -6,7 +6,6 @@
     <div class="container">
         <h1 class="display-4">Selamat Datang di Website SMPS Plus Fajar Sentosa</h1>
         <p class="lead">Sekolah Unggulan dengan Fasilitas Modern dan Prestasi Gemilang</p>
-        <a href="#ppdb" class="btn btn-light btn-lg mt-3">Daftar PPDB Sekarang</a>
     </div>
 </section>
 
@@ -33,7 +32,6 @@
     </div>
 </section>
 <?= $this->include('layouts/chatbot') ?>
-
 <!-- Dynamic Content -->
 <div class="container my-5">
     <?= $this->renderSection('content') ?>

@@ -6,10 +6,10 @@ const chatbotToggler = document.querySelector('#chatbot-toggler');
 const baseInputHeight = messageInput.scrollHeight;
 
 const userData = {
-    message : 'null'
+    message: 'null'
 }
 
-// Local question/answer database (for fast non-AI replies)
+
 const knowledgeBase = [
     // {
     //     question: 'apa itu ppdb',
@@ -308,7 +308,7 @@ const picker = new EmojiMart.Picker({
         const { selectionStart: start, selectionEnd: end } = messageInput;
         messageInput.setRangeText(emoji.native, start, end, 'end');
         messageInput.focus();
-    }, 
+    },
     onclickOutside: (e) => {
         // Close picker when clicking outside of it (but keep it open when clicking the emoji button itself)
         if (e.target.closest('#emoji-picker')) {

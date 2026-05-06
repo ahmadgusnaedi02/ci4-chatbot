@@ -29,8 +29,9 @@
                 </path>
             </svg>
             <div class="message-text">
-                Hello!<br />
-                How can I assist you today?
+                Halo!</br>
+                Selamat datang di layanan informasi PPDB. Silakan ajukan pertanyaan seputar pendaftaran peserta didik
+                baru.
             </div>
         </div>
     </div>
