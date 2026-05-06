@@ -7,7 +7,10 @@ use CodeIgniter\Router\RouteCollection;
  */
 $routes->get('/', 'Home::index');
 $routes->get('/ppdb', 'Ppdb::index');
-$routes->get('/admin', 'Admin::index');
+$routes->get('/admin', 'Auth::login');
+$routes->get('/admin/login', 'Auth::login');
+$routes->post('/admin/login', 'Auth::attemptLogin');
+$routes->get('/admin/logout', 'Auth::logout');
 $routes->post('/chatbot', 'Chatbot::chat');
 $routes->get('/dashboard', 'Dashboard::index');
 $routes->get('/dashboard/scan-whatsapp', 'Dashboard::scanWhatsapp');

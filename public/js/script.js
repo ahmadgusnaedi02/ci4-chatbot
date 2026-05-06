@@ -4,6 +4,22 @@ const sendMessageButton = document.querySelector('#send-message');
 const chatbotToggler = document.querySelector('#chatbot-toggler');
 // Track base textarea height to reset when input is emptied
 const baseInputHeight = messageInput.scrollHeight;
+const baseUrlMeta = document.querySelector('meta[name="app-base-url"]');
+const appBaseUrl = baseUrlMeta ? baseUrlMeta.getAttribute('content') : `${window.location.origin}/`;
+const chatbotUrl = new URL('chatbot', appBaseUrl).toString();
+const webChatSessionKey = 'school_web_chat_session_id';
+
+const getWebChatSessionId = () => {
+    let sessionId = localStorage.getItem(webChatSessionKey);
+
+    if (!sessionId) {
+        const randomPart = window.crypto?.randomUUID ? window.crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+        sessionId = `web-${randomPart}`;
+        localStorage.setItem(webChatSessionKey, sessionId);
+    }
+
+    return sessionId;
+};
 
 const userData = {
     message: 'null'
@@ -204,17 +220,28 @@ const cleanFormattingMarkers = (str) => {
         .replace(/__/g, '')
         .replace(/`/g, '');
 }
-const generateBotResponse = (botMessageDiv) => {
+const generateBotResponse = async (botMessageDiv) => {
 
     const messageElement = botMessageDiv.querySelector('.message-text');
 
-    // cari jawaban lokal
-    const localAnswer = findBestMatch(userData.message);
-
-    if (localAnswer) {
-        messageElement.innerText = cleanFormattingMarkers(localAnswer);
-    } else {
-        messageElement.innerText = "Maaf, saya belum bisa menjawab pertanyaan itu.";
+    try {
+        const response = await fetch(chatbotUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                source: 'web',
+                web_session_id: getWebChatSessionId(),
+                contact_name: 'Pengunjung Website',
+                message: userData.message,
+            }),
+        });
+        const data = await response.json();
+        const reply = data?.choices?.[0]?.message?.content || 'Maaf, saya belum bisa menjawab pertanyaan itu.';
+        messageElement.innerText = cleanFormattingMarkers(reply);
+    } catch (error) {
+        messageElement.innerText = 'Maaf, koneksi chatbot sedang bermasalah. Silakan coba lagi.';
     }
 
     chatBody.scrollTop = chatBody.scrollHeight;
@@ -244,18 +271,6 @@ const handleOutgoingMessage = (e) => {
 
     // close emoji picker (so it doesn't stay open after sending)
     document.body.classList.remove('show-emoji-picker');
-
-    // If we have a local answer (by similarity), use it instead of calling the AI API
-    const localAnswer = findBestMatch(text);
-    if (localAnswer) {
-        setTimeout(() => {
-            const answerHtml = '<div class="message-text">' + escapeHtml(cleanFormattingMarkers(localAnswer)) + '</div>';
-            const botMessageDiv = createMessageElement(answerHtml, 'bot-message');
-            chatBody.appendChild(botMessageDiv);
-            chatBody.scrollTop = chatBody.scrollHeight;
-        }, 200);
-        return;
-    }
 
     setTimeout(() => {
         // simulate bot response after a short delay

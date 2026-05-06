@@ -9,7 +9,7 @@
                 <div class="d-sm-flex align-items-center justify-content-between border-bottom mb-4 pb-3">
                     <div>
                         <h3 class="fw-bold mb-1">History Chat</h3>
-                        <p class="text-muted mb-0">Riwayat pesan WhatsApp, status jawaban chatbot, dan kandidat data latih.</p>
+                        <p class="text-muted mb-0">Riwayat pesan WhatsApp dan Website, status jawaban chatbot, dan kandidat data latih.</p>
                     </div>
                     <button class="btn btn-outline-secondary btn-lg mt-3 mt-sm-0" type="button" id="refreshHistoryBtn">
                         <i class="mdi mdi-refresh me-1"></i> Refresh
@@ -22,7 +22,7 @@
                             <div class="card-body">
                                 <div class="row g-2 mb-3">
                                     <div class="col-7">
-                                        <input class="form-control" id="searchChatInput" type="search" placeholder="Cari nomor/pesan">
+                                        <input class="form-control" id="searchChatInput" type="search" placeholder="Cari nomor/web/pesan">
                                     </div>
                                     <div class="col-5">
                                         <select class="form-control" id="statusFilter">
@@ -253,7 +253,8 @@
             chatList.innerHTML = chats.map((chat) => {
                 const active = Number(chat.id) === Number(selectedChatId) ? 'active' : '';
                 const [label, type] = statusBadge(chat.status);
-                const title = chat.contactName || chat.waNumber;
+                const title = chat.contactName || (chat.waNumber && chat.waNumber.startsWith('WEB-') ? 'Pengunjung Website' : chat.waNumber);
+                const source = chat.waNumber && chat.waNumber.startsWith('WEB-') ? 'Website' : chat.waNumber;
 
                 return `
                     <div class="history-item ${active}" data-chat-id="${chat.id}">
@@ -263,9 +264,10 @@
                         </div>
                         <p class="text-muted mb-2 history-last-message">${escapeHtml(chat.lastMessage || '-')}</p>
                         <div class="d-flex align-items-center justify-content-between">
-                            <small class="text-muted">${formatTime(chat.lastMessageAt || chat.updatedAt)}</small>
+                            <small class="text-muted">${escapeHtml(source || '-')}</small>
                             <small class="text-muted">${chat.messageCount} pesan</small>
                         </div>
+                        <small class="text-muted">${formatTime(chat.lastMessageAt || chat.updatedAt)}</small>
                     </div>
                 `;
             }).join('');
@@ -291,7 +293,8 @@
             const needsCsCount = messages.filter((message) => message.needsCs).length;
 
             historyTitle.textContent = chat.contactName || chat.waNumber;
-            historySubtitle.textContent = `${chat.waNumber} - ${formatTime(chat.lastMessageAt || chat.updatedAt)}`;
+            const sourceLabel = chat.waNumber && chat.waNumber.startsWith('WEB-') ? 'Website' : chat.waNumber;
+            historySubtitle.textContent = `${sourceLabel} - ${formatTime(chat.lastMessageAt || chat.updatedAt)}`;
             historyStatus.textContent = label;
             historyStatus.className = `badge badge-opacity-${type}`;
             historySummary.innerHTML = `

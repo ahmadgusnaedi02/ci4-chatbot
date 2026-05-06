@@ -10,11 +10,11 @@
                     </button>
                 </div>
                 <div>
-                    <a class="navbar-brand brand-logo" href="index.html">
-                        <img src="assets/images/logo.svg" alt="logo" />
+                    <a class="navbar-brand brand-logo" href="<?= site_url('dashboard') ?>">
+                        <img src="<?= base_url('assets/images/logo.svg') ?>" alt="logo" />
                     </a>
-                    <a class="navbar-brand brand-logo-mini" href="index.html">
-                        <img src="assets/images/logo-mini.svg" alt="logo" />
+                    <a class="navbar-brand brand-logo-mini" href="<?= site_url('dashboard') ?>">
+                        <img src="<?= base_url('assets/images/logo-mini.svg') ?>" alt="logo" />
                     </a>
                 </div>
             </div>
@@ -22,18 +22,18 @@
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item dropdown d-none d-lg-block user-dropdown">
                         <a class="nav-link" id="UserDropdown" href="#" data-bs-toggle="dropdown" aria-expanded="false">
-                            <img class="img-xs rounded-circle" src="assets/images/faces/face8.jpg" alt="Profile image">
+                            <img class="img-xs rounded-circle" src="<?= base_url('assets/images/faces/face8.jpg') ?>" alt="Profile image">
                         </a>
                         <div class="dropdown-menu dropdown-menu-right navbar-dropdown" aria-labelledby="UserDropdown">
                             <div class="dropdown-header text-center">
-                                <img class="img-md rounded-circle" src="assets/images/faces/face8.jpg"
+                                <img class="img-md rounded-circle" src="<?= base_url('assets/images/faces/face8.jpg') ?>"
                                     alt="Profile image">
-                                <p class="mb-1 mt-3 fw-semibold">Allen Moreno</p>
-                                <p class="fw-light text-muted mb-0">allenmoreno@gmail.com</p>
+                                <p class="mb-1 mt-3 fw-semibold"><?= esc(session('admin_name') ?? 'Admin Sekolah') ?></p>
+                                <p class="fw-light text-muted mb-0"><?= esc(session('admin_email') ?? 'admin@sekolah.test') ?></p>
                             </div>
 
-                            <a class="dropdown-item"><i
-                                    class="dropdown-item-icon mdi mdi-power text-primary me-2"></i>Sign Out</a>
+                            <a class="dropdown-item" href="<?= site_url('admin/logout') ?>"><i
+                                    class="dropdown-item-icon mdi mdi-power text-primary me-2"></i>Logout</a>
                         </div>
                     </li>
                 </ul>
