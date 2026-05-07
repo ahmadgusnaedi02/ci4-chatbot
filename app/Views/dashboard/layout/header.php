@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 
 <head>
     <!-- Required meta tags -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>Star Admin2 </title>
+    <title>Admin PPDB - SMPS Plus Fajar Sentosa</title>
     <!-- plugins:css -->
     <link rel="stylesheet" href="<?= base_url('assets/vendors/feather/feather.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/vendors/mdi/css/materialdesignicons.min.css') ?>">
@@ -22,6 +22,7 @@
     <!-- End plugin css for this page -->
     <!-- inject:css -->
     <link rel="stylesheet" href="<?= base_url('assets/css/style.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('css/admin-dashboard.css') ?>">
     <!-- endinject -->
-    <link rel="shortcut icon" href="<?= base_url('assets/images/favicon.png') ?>" />
+    <link rel="shortcut icon" href="<?= base_url('assets/images/logo-yapas.png') ?>" />
 </head>

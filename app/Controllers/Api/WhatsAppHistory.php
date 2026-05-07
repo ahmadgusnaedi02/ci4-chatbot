@@ -2,6 +2,7 @@
 
 namespace App\Controllers\Api;
 
+use App\Models\ChatbotKnowledgeModel;
 use CodeIgniter\RESTful\ResourceController;
 
 class WhatsAppHistory extends ResourceController
@@ -423,6 +424,20 @@ class WhatsAppHistory extends ResourceController
                     'expected_answer' => $expectedAnswer,
                     'source' => 'admin_reply',
                     'status' => 'draft',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+
+                $knowledgeModel = new ChatbotKnowledgeModel();
+                $knowledgeModel->ensureTable();
+                $knowledgeModel->insert([
+                    'pertanyaan' => $question,
+                    'intent' => 'draft_admin_reply',
+                    'keyword' => $question,
+                    'response' => $expectedAnswer,
+                    'status' => 'draft',
+                    'priority' => 0,
+                    'source' => 'admin_reply',
                     'created_at' => $now,
                     'updated_at' => $now,
                 ]);

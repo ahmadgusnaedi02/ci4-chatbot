@@ -16,6 +16,13 @@ $routes->get('/dashboard', 'Dashboard::index');
 $routes->get('/dashboard/scan-whatsapp', 'Dashboard::scanWhatsapp');
 $routes->get('/dashboard/support-chat', 'Dashboard::supportChat');
 $routes->get('/dashboard/history-chat', 'Dashboard::historyChat');
+$routes->get('/dashboard/knowledge-base', 'Dashboard::knowledgeBase');
+$routes->get('/dashboard/knowledge-base/create', 'Dashboard::createKnowledgeBase');
+$routes->post('/dashboard/knowledge-base', 'Dashboard::storeKnowledgeBase');
+$routes->get('/dashboard/knowledge-base/(:num)/edit', 'Dashboard::editKnowledgeBase/$1');
+$routes->post('/dashboard/knowledge-base/(:num)', 'Dashboard::updateKnowledgeBase/$1');
+$routes->post('/dashboard/knowledge-base/(:num)/toggle', 'Dashboard::toggleKnowledgeBase/$1');
+$routes->post('/dashboard/knowledge-base/(:num)/delete', 'Dashboard::deleteKnowledgeBase/$1');
 
 $routes->get('/api/wa/chats', 'Api\WhatsAppHistory::chats');
 $routes->get('/api/wa/chats/(:num)', 'Api\WhatsAppHistory::chat/$1');

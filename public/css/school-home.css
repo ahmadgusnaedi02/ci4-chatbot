@@ -39,16 +39,11 @@ body {
     height: 70px;
     border: 2px solid rgba(16, 79, 134, 0.12);
     border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--school-blue);
+    display: block;
     background: #edf6fb;
     flex: 0 0 auto;
-}
-
-.school-logo i {
-    font-size: 2rem;
+    object-fit: contain;
+    padding: 6px;
 }
 
 .school-navbar .nav-link {

@@ -2,26 +2,12 @@
 
 namespace App\Controllers;
 
+use App\Models\ChatbotKnowledgeModel;
 use CodeIgniter\RESTful\ResourceController;
 
 class Chatbot extends ResourceController
 {
     protected $format = 'json';
-
-    private array $knowledgeBase = [
-        [
-            'question' => 'kapan pendaftaran ppdb',
-            'answer' => 'Pendaftaran PPDB dibuka pada bulan Juni setiap tahunnya.',
-        ],
-        [
-            'question' => 'syarat ppdb',
-            'answer' => 'Syarat PPDB adalah fotokopi ijazah, kartu keluarga, dan pas foto.',
-        ],
-        [
-            'question' => 'alamat sekolah',
-            'answer' => 'Alamat sekolah berada di Jl. Contoh No. 10 Kediri.',
-        ],
-    ];
 
     private array $synonymMap = [
         'dibuka' => 'pendaftaran',
@@ -83,26 +69,31 @@ class Chatbot extends ResourceController
             return null;
         }
 
+        $knowledgeBase = (new ChatbotKnowledgeModel())->getActiveKnowledge();
+        if (!$knowledgeBase) {
+            return null;
+        }
+
         $best = [
             'distance' => PHP_INT_MAX,
-            'answer' => null,
+            'response' => null,
         ];
 
-        foreach ($this->knowledgeBase as $item) {
-            $target = $this->normalizeText($item['question']);
+        foreach ($knowledgeBase as $item) {
+            $target = $this->normalizeText((string) $item['pertanyaan']);
             $distance = levenshtein($query, $target);
 
             if ($distance < $best['distance']) {
                 $best = [
                     'distance' => $distance,
-                    'answer' => $item['answer'],
+                    'response' => $item['response'],
                 ];
             }
         }
 
         $maxDistance = max(1, (int) floor(strlen($query) * 0.4));
-        if ($best['answer'] && $best['distance'] <= $maxDistance) {
-            return $best['answer'];
+        if ($best['response'] && $best['distance'] <= $maxDistance) {
+            return $best['response'];
         }
 
         $queryTokens = array_values(array_filter($this->tokenize($message), fn ($token) => strlen($token) > 2));
@@ -111,20 +102,29 @@ class Chatbot extends ResourceController
         }
 
         $bestScore = 0;
-        $bestAnswer = null;
+        $bestResponse = null;
 
-        foreach ($this->knowledgeBase as $item) {
-            $itemTokens = array_values(array_filter($this->tokenize($item['question']), fn ($token) => strlen($token) > 2));
+        foreach ($knowledgeBase as $item) {
+            $searchText = implode(' ', array_filter([
+                (string) ($item['pertanyaan'] ?? ''),
+                (string) ($item['intent'] ?? ''),
+                (string) ($item['keyword'] ?? ''),
+            ]));
+            $itemTokens = array_values(array_filter($this->tokenize($searchText), fn ($token) => strlen($token) > 2));
+            if (!$itemTokens) {
+                continue;
+            }
+
             $matches = count(array_intersect($itemTokens, $queryTokens));
             $score = ($matches / count($queryTokens)) + ($matches / max(1, count($itemTokens)));
 
             if ($score > $bestScore) {
                 $bestScore = $score;
-                $bestAnswer = $item['answer'];
+                $bestResponse = $item['response'];
             }
         }
 
-        return $bestScore >= 1 ? $bestAnswer : null;
+        return $bestScore >= 1 ? $bestResponse : null;
     }
 
     private function choiceResponse(string $content): array
