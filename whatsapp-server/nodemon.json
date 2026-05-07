@@ -1,0 +1,14 @@
+{
+  "watch": [
+    "server.js",
+    "package.json"
+  ],
+  "ignore": [
+    "data/**",
+    "sessions/**",
+    ".wwebjs_cache/**",
+    "*.log",
+    "*.err"
+  ],
+  "ext": "js,json"
+}

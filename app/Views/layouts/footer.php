@@ -14,7 +14,7 @@
 </footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/emoji-mart@latest/dist/browser.js"></script>
-<script src="<?= base_url('js/script.js') ?>"></script>
+<script src="<?= base_url('js/script.js?v=20260507-admin-reply') ?>"></script>
 <script>
     const navLinks = document.querySelectorAll('.school-navbar .nav-link');
     const sections = Array.from(navLinks)

@@ -433,22 +433,31 @@ app.post('/api/support-chats/:id/reply', async (req, res) => {
     return;
   }
 
-  if (!client || status !== 'ready') {
+  const isWebTicket = String(ticket.from || '').startsWith('WEB-');
+
+  if (!isWebTicket && (!client || status !== 'ready')) {
     res.status(503).json({ message: 'WhatsApp belum terhubung.' });
     return;
   }
 
   try {
-    await client.sendMessage(ticket.from, text);
+    if (!isWebTicket) {
+      await client.sendMessage(ticket.from, text);
+    }
+
     await apiRequest(`/support-chats/${encodeURIComponent(ticket.id)}/reply`, {
       method: 'POST',
       body: JSON.stringify({ message: text, sent_at: nowIso() }),
     });
-    supportStore.sessions[ticket.from] = {
-      handoffOffered: false,
-      waitingAdmin: true,
-    };
-    saveSupportStore();
+
+    if (!isWebTicket) {
+      supportStore.sessions[ticket.from] = {
+        handoffOffered: false,
+        waitingAdmin: true,
+      };
+      saveSupportStore();
+    }
+
     io.emit('support:changed', ticket);
     res.json({ ok: true, ticket });
   } catch (error) {

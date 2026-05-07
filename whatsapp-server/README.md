@@ -8,6 +8,14 @@ npm install
 npm start
 ```
 
+Untuk development boleh pakai:
+
+```bash
+npm run dev
+```
+
+`nodemon` sudah diatur agar tidak restart saat file runtime WhatsApp berubah, seperti `data`, `sessions`, dan cache WhatsApp Web.
+
 Setelah server berjalan, buka:
 
 ```text

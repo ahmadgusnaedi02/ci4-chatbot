@@ -7,8 +7,12 @@ const baseInputHeight = messageInput.scrollHeight;
 const baseUrlMeta = document.querySelector('meta[name="app-base-url"]');
 const appBaseUrl = baseUrlMeta ? baseUrlMeta.getAttribute('content') : `${window.location.origin}/`;
 const chatbotUrl = new URL('chatbot', appBaseUrl).toString();
+const waApiUrl = new URL('api/wa', appBaseUrl).toString();
 const webChatSessionKey = 'school_web_chat_session_id';
-const botLogo = `${appBaseUrl}assets/images/logo-yapas.png`;
+const webChatIdKey = 'school_web_chat_id';
+const botLogo = new URL('assets/images/logo-yapas.png', appBaseUrl).toString();
+const displayedAdminMessageIds = new Set();
+let supportPollingTimer = null;
 
 const getWebChatSessionId = () => {
     let sessionId = localStorage.getItem(webChatSessionKey);
@@ -32,6 +36,70 @@ const createMessageElement = (content, ...classess) => {
     div.innerHTML = content;
     return div;
 }
+
+const appendBotMessage = (text, extraClasses = []) => {
+    const messageContent = `
+        <img class="bot-avatar" src="${botLogo}" alt="Logo Yapas">
+        <div class="message-text"></div>
+    `;
+    const botMessageDiv = createMessageElement(messageContent, 'bot-message', ...extraClasses);
+    botMessageDiv.querySelector('.message-text').innerText = cleanFormattingMarkers(text);
+    chatBody.appendChild(botMessageDiv);
+    chatBody.scrollTop = chatBody.scrollHeight;
+
+    return botMessageDiv;
+};
+
+const appendAdminMessages = (messages = []) => {
+    messages.forEach((message) => {
+        if (message.sender !== 'admin' || displayedAdminMessageIds.has(message.id)) {
+            return;
+        }
+
+        displayedAdminMessageIds.add(message.id);
+        appendBotMessage(message.body);
+    });
+};
+
+const pollSupportTicket = async () => {
+    const chatId = localStorage.getItem(webChatIdKey);
+
+    if (!chatId) {
+        return;
+    }
+
+    try {
+        const chatResponse = await fetch(`${waApiUrl}/chats/${encodeURIComponent(chatId)}`);
+
+        if (chatResponse.ok) {
+            const chatData = await chatResponse.json();
+            appendAdminMessages(chatData.chat?.messages || []);
+            return;
+        }
+
+        const ticketResponse = await fetch(`${waApiUrl}/support-chats/open-chat/${encodeURIComponent(chatId)}`);
+        const ticketData = await ticketResponse.json();
+        appendAdminMessages(ticketData.ticket?.messages || []);
+    } catch (error) {
+        // Keep polling quietly; the next request may succeed once the server is reachable again.
+    }
+};
+
+const startSupportPolling = () => {
+    if (supportPollingTimer) {
+        return;
+    }
+
+    pollSupportTicket();
+    supportPollingTimer = window.setInterval(pollSupportTicket, 3000);
+};
+
+const stopSupportPolling = () => {
+    if (supportPollingTimer) {
+        window.clearInterval(supportPollingTimer);
+        supportPollingTimer = null;
+    }
+};
 
 // escape HTML to prevent injection (e.g. <h2>hi</h2>)
 const escapeHtml = (str) => {
@@ -68,8 +136,18 @@ const generateBotResponse = async (botMessageDiv) => {
             }),
         });
         const data = await response.json();
+
+        if (data.chat_id) {
+            localStorage.setItem(webChatIdKey, data.chat_id);
+            startSupportPolling();
+        }
+
         const reply = data?.choices?.[0]?.message?.content || 'Maaf, saya belum bisa menjawab pertanyaan itu.';
         messageElement.innerText = cleanFormattingMarkers(reply);
+
+        if (data.handoff || data.ticket_id) {
+            startSupportPolling();
+        }
     } catch (error) {
         messageElement.innerText = 'Maaf, koneksi chatbot sedang bermasalah. Silakan coba lagi.';
     }
@@ -106,7 +184,7 @@ const handleOutgoingMessage = (e) => {
         // simulate bot response after a short delay
 
         const botMessageContent = `
-        <img class="chatbot-logo" src="${botLogo}" alt="Logo Yafas">
+        <img class="bot-avatar" src="${botLogo}" alt="Logo Yapas">
         <div class="message-text">
             <div class="thinking-indicator">
                 <div class="dot"></div>
@@ -183,4 +261,8 @@ if (closeChatbotBtn) {
     closeChatbotBtn.addEventListener('click', () => {
         document.body.classList.remove('show-chatbot');
     });
+}
+
+if (localStorage.getItem(webChatIdKey)) {
+    startSupportPolling();
 }

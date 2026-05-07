@@ -203,6 +203,77 @@ class Chatbot extends ResourceController
         return str_contains($this->normalizeText($text), 'terhubung dengan cs');
     }
 
+    private function wantsCustomerService(string $text): bool
+    {
+        $normalized = $this->normalizeText($text);
+
+        foreach (['cs', 'customer service', 'admin', 'terhubung', 'hubungkan', 'operator', 'iya', 'ya', 'mau'] as $keyword) {
+            if (str_contains($normalized, $keyword)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function getOpenSupportTicket(int $chatId): ?array
+    {
+        return db_connect()->table('wa_support_tickets')
+            ->where('chat_id', $chatId)
+            ->where('status', 'open')
+            ->orderBy('id', 'DESC')
+            ->get()
+            ->getRowArray() ?: null;
+    }
+
+    private function createSupportTicket(int $chatId, ?int $userMessageId = null): int
+    {
+        $db = db_connect();
+        $open = $this->getOpenSupportTicket($chatId);
+
+        if ($open) {
+            return (int) $open['id'];
+        }
+
+        $now = $this->now();
+        $db->table('wa_support_tickets')->insert([
+            'chat_id' => $chatId,
+            'user_message_id' => $userMessageId,
+            'status' => 'open',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $ticketId = (int) $db->insertID();
+        $db->table('wa_chats')->where('id', $chatId)->update([
+            'status' => 'waiting_cs',
+            'updated_at' => $now,
+        ]);
+
+        if ($userMessageId) {
+            $db->table('wa_messages')->where('id', $userMessageId)->update([
+                'needs_cs' => 1,
+                'is_training_candidate' => 1,
+                'updated_at' => $now,
+            ]);
+        }
+
+        return $ticketId;
+    }
+
+    private function webChatHasHandoffOffer(int $chatId): bool
+    {
+        $lastBotMessage = db_connect()->table('wa_messages')
+            ->where('chat_id', $chatId)
+            ->where('direction', 'outgoing')
+            ->where('sender_type', 'bot')
+            ->orderBy('id', 'DESC')
+            ->get(1)
+            ->getRowArray();
+
+        return $lastBotMessage && $this->isCustomerServiceOffer((string) $lastBotMessage['message']);
+    }
+
     public function chat()
     {
         $apiKey = getenv('GROQ_API_KEY');
@@ -224,6 +295,38 @@ class Chatbot extends ResourceController
             $userMessageId = $this->insertMessage($chatId, 'incoming', 'user', $message, [
                 'answered_by_chatbot' => 0,
             ]);
+
+            $openTicket = $this->getOpenSupportTicket($chatId);
+            if ($openTicket) {
+                $reply = 'Pesan Anda sudah diteruskan ke CS. Mohon tunggu balasan admin.';
+                $this->insertMessage($chatId, 'outgoing', 'bot', $reply, [
+                    'chatbot_understood' => 0,
+                    'needs_cs' => 1,
+                    'is_training_candidate' => 1,
+                ]);
+
+                return $this->respond(array_merge($this->choiceResponse($reply), [
+                    'chat_id' => $chatId,
+                    'ticket_id' => (int) $openTicket['id'],
+                    'handoff' => true,
+                ]));
+            }
+
+            if ($this->webChatHasHandoffOffer($chatId) && $this->wantsCustomerService($message)) {
+                $ticketId = $this->createSupportTicket($chatId, $userMessageId);
+                $reply = 'Baik, Anda sudah terhubung dengan CS. Mohon tunggu balasan admin.';
+                $this->insertMessage($chatId, 'outgoing', 'bot', $reply, [
+                    'chatbot_understood' => 0,
+                    'needs_cs' => 1,
+                    'is_training_candidate' => 1,
+                ]);
+
+                return $this->respond(array_merge($this->choiceResponse($reply), [
+                    'chat_id' => $chatId,
+                    'ticket_id' => $ticketId,
+                    'handoff' => true,
+                ]));
+            }
         }
 
         $localAnswer = $this->findLocalAnswer($message);

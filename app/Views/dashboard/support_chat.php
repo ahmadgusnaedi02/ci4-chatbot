@@ -9,7 +9,7 @@
                 <div class="d-sm-flex align-items-center justify-content-between border-bottom mb-4 pb-3">
                     <div>
                         <h3 class="fw-bold mb-1">Answer Chat</h3>
-                        <p class="text-muted mb-0">Balas pesan WhatsApp yang sudah minta terhubung dengan CS.</p>
+                        <p class="text-muted mb-0">Balas pesan WhatsApp dan Website yang sudah minta terhubung dengan CS.</p>
                     </div>
                     <button class="btn btn-outline-secondary btn-lg mt-3 mt-sm-0" type="button" id="refreshTicketsBtn">
                         <i class="mdi mdi-refresh me-1"></i> Refresh
@@ -54,7 +54,7 @@
                                 <form class="support-reply-form mt-3" id="replyForm">
                                     <textarea class="form-control" id="replyMessage" rows="3" placeholder="Tulis balasan admin..." disabled></textarea>
                                     <div class="d-flex justify-content-between align-items-center mt-3">
-                                        <span class="text-muted" id="replyInfo">WhatsApp harus dalam status Ready.</span>
+                                        <span class="text-muted" id="replyInfo">Pilih chat aktif untuk membalas.</span>
                                         <button class="btn btn-primary text-white btn-lg" type="submit" id="sendReplyBtn" disabled>
                                             <i class="mdi mdi-send me-1"></i> Kirim
                                         </button>
@@ -240,7 +240,7 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        async function loadTickets() {
+        async function loadTickets(quiet = false) {
             try {
                 const response = await fetch('http://localhost:3001/api/support-chats');
                 const data = await response.json();
@@ -252,7 +252,9 @@
 
                 renderTickets();
                 renderSelectedTicket();
-                setSupportMessage('Data antrian CS berhasil dimuat.', 'success');
+                if (!quiet) {
+                    setSupportMessage('Data antrian CS berhasil dimuat.', 'success');
+                }
             } catch (error) {
                 setSupportMessage('Service Node.js belum terhubung. Pastikan port 3001 aktif.', 'danger');
             }
@@ -297,7 +299,7 @@
 
                 replyMessage.value = '';
                 await loadTickets();
-                setSupportMessage('Balasan admin berhasil dikirim ke WhatsApp.', 'success');
+                setSupportMessage('Balasan admin berhasil dikirim.', 'success');
             } catch (error) {
                 setSupportMessage(error.message, 'danger');
                 sendReplyBtn.disabled = false;
@@ -337,6 +339,7 @@
         });
 
         refreshTicketsBtn.addEventListener('click', loadTickets);
+        window.setInterval(() => loadTickets(true), 5000);
 
         if (typeof io !== 'undefined') {
             const socket = io('http://localhost:3001', {
