@@ -5,8 +5,8 @@
 <?php
     $isEdit = $mode === 'edit';
     $action = $isEdit
-        ? site_url('dashboard/knowledge-base/' . $item['id'])
-        : site_url('dashboard/knowledge-base');
+        ? site_url('dashboard/intents/' . $item['id'])
+        : site_url('dashboard/intents');
 ?>
 
 <div class="main-panel">
@@ -14,10 +14,10 @@
         <div class="admin-page-head">
             <div>
                 <p class="admin-eyebrow mb-2">Dataset Chatbot</p>
-                <h2 class="admin-page-title mb-2"><?= $isEdit ? 'Edit Intent Dataset' : 'Tambah Intent Dataset' ?></h2>
-                <p class="admin-page-subtitle mb-0">Satu form ini menyimpan ke tabel intent, training phrase, dan keyword yang terpisah.</p>
+                <h2 class="admin-page-title mb-2"><?= $isEdit ? 'Edit Intent' : 'Tambah Intent' ?></h2>
+                <p class="admin-page-subtitle mb-0">Intent adalah kelas Naive Bayes dan tempat response utama disimpan.</p>
             </div>
-            <a class="btn btn-outline-secondary mt-3 mt-md-0" href="<?= site_url('dashboard/knowledge-base') ?>">
+            <a class="btn btn-outline-secondary mt-3 mt-md-0" href="<?= site_url('dashboard/intents') ?>">
                 <i class="mdi mdi-arrow-left me-1"></i> Kembali
             </a>
         </div>
@@ -28,31 +28,14 @@
 
         <div class="card admin-card">
             <div class="card-body">
-                <div class="alert alert-info">
-                    Intent dan response masuk ke <strong>chatbot_intents</strong>, setiap baris training phrase masuk ke
-                    <strong>chatbot_training_phrases</strong>, dan keyword masuk ke <strong>chatbot_keywords</strong>.
-                </div>
-
                 <form action="<?= $action ?>" method="post">
                     <?= csrf_field() ?>
 
                     <div class="row">
                         <div class="col-lg-8">
                             <div class="mb-3">
-                                <label class="form-label" for="training_phrases">Training Phrase</label>
-                                <textarea class="form-control" id="training_phrases" name="training_phrases" rows="5" required
-                                    placeholder="Satu contoh pertanyaan per baris"><?= esc(old('training_phrases', $item['training_phrases_text'] ?? '')) ?></textarea>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label" for="keywords">Keyword</label>
-                                <textarea class="form-control" id="keywords" name="keywords" rows="3" required
-                                    placeholder="Pisahkan keyword dengan koma"><?= esc(old('keywords', $item['keywords_text'] ?? '')) ?></textarea>
-                            </div>
-
-                            <div class="mb-3">
                                 <label class="form-label" for="response">Response</label>
-                                <textarea class="form-control" id="response" name="response" rows="7" required><?= esc(old('response', $item['response'] ?? '')) ?></textarea>
+                                <textarea class="form-control" id="response" name="response" rows="8" required><?= esc(old('response', $item['response'] ?? '')) ?></textarea>
                             </div>
                         </div>
 

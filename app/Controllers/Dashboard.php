@@ -2,7 +2,7 @@
 
 namespace App\Controllers;
 
-use App\Models\ChatbotKnowledgeModel;
+use App\Models\ChatbotIntentModel;
 use CodeIgniter\HTTP\RedirectResponse;
 
 class Dashboard extends BaseController
@@ -30,30 +30,19 @@ class Dashboard extends BaseController
 
     public function knowledgeBase(): string
     {
-        $model = new ChatbotKnowledgeModel();
-        $model->seedDefaultRows();
+        return $this->intents();
+    }
+
+    public function intents(): string
+    {
+        $model = new ChatbotIntentModel();
+        $model->ensureSchema();
 
         $keyword = trim((string) $this->request->getGet('q'));
         $status = trim((string) $this->request->getGet('status'));
 
-        $builder = $model->orderBy('priority', 'DESC')->orderBy('id', 'DESC');
-
-        if ($status !== '') {
-            $builder->where('status', $status);
-        }
-
-        if ($keyword !== '') {
-            $builder->groupStart()
-                ->like('pertanyaan', $keyword)
-                ->orLike('intent', $keyword)
-                ->orLike('keyword', $keyword)
-                ->orLike('response', $keyword)
-                ->groupEnd();
-        }
-
-        return view('dashboard/knowledge_base/index', [
-            'items' => $builder->paginate(10, 'knowledge_base'),
-            'pager' => $model->pager,
+        return view('dashboard/intents/index', [
+            'items' => $model->getIntentRows($keyword, $status),
             'keyword' => $keyword,
             'status' => $status,
         ]);
@@ -61,12 +50,15 @@ class Dashboard extends BaseController
 
     public function createKnowledgeBase(): string
     {
-        return view('dashboard/knowledge_base/form', [
+        return $this->createIntent();
+    }
+
+    public function createIntent(): string
+    {
+        return view('dashboard/intents/form', [
             'mode' => 'create',
             'item' => [
-                'pertanyaan' => '',
-                'intent' => '',
-                'keyword' => '',
+                'name' => '',
                 'response' => '',
                 'status' => 'active',
                 'priority' => 0,
@@ -77,32 +69,38 @@ class Dashboard extends BaseController
 
     public function storeKnowledgeBase(): RedirectResponse
     {
-        $model = new ChatbotKnowledgeModel();
-        $model->ensureTable();
+        return $this->storeIntent();
+    }
 
-        $data = $this->knowledgeBasePayload();
-        $validation = $this->validateKnowledgeBase($data);
+    public function storeIntent(): RedirectResponse
+    {
+        $model = new ChatbotIntentModel();
 
-        if ($validation !== true) {
-            return redirect()->back()->withInput()->with('error', $validation);
+        try {
+            $model->createIntent($this->request->getPost());
+        } catch (\InvalidArgumentException $error) {
+            return redirect()->back()->withInput()->with('error', $error->getMessage());
         }
 
-        $model->insert($data);
-
-        return redirect()->to(site_url('dashboard/knowledge-base'))->with('success', 'Data knowledge base berhasil ditambahkan.');
+        return redirect()->to(site_url('dashboard/intents'))->with('success', 'Intent berhasil ditambahkan.');
     }
 
     public function editKnowledgeBase(int $id): string|RedirectResponse
     {
-        $model = new ChatbotKnowledgeModel();
-        $model->ensureTable();
+        return $this->editIntent($id);
+    }
+
+    public function editIntent(int $id): string|RedirectResponse
+    {
+        $model = new ChatbotIntentModel();
+        $model->ensureSchema();
         $item = $model->find($id);
 
         if (!$item) {
-            return redirect()->to(site_url('dashboard/knowledge-base'))->with('error', 'Data knowledge base tidak ditemukan.');
+            return redirect()->to(site_url('dashboard/intents'))->with('error', 'Intent tidak ditemukan.');
         }
 
-        return view('dashboard/knowledge_base/form', [
+        return view('dashboard/intents/form', [
             'mode' => 'edit',
             'item' => $item,
         ]);
@@ -110,29 +108,26 @@ class Dashboard extends BaseController
 
     public function updateKnowledgeBase(int $id): RedirectResponse
     {
-        $model = new ChatbotKnowledgeModel();
-        $model->ensureTable();
+        return $this->updateIntent($id);
+    }
 
-        if (!$model->find($id)) {
-            return redirect()->to(site_url('dashboard/knowledge-base'))->with('error', 'Data knowledge base tidak ditemukan.');
+    public function updateIntent(int $id): RedirectResponse
+    {
+        $model = new ChatbotIntentModel();
+
+        try {
+            $model->updateIntentRow($id, $this->request->getPost());
+        } catch (\InvalidArgumentException $error) {
+            return redirect()->back()->withInput()->with('error', $error->getMessage());
         }
 
-        $data = $this->knowledgeBasePayload();
-        $validation = $this->validateKnowledgeBase($data);
-
-        if ($validation !== true) {
-            return redirect()->back()->withInput()->with('error', $validation);
-        }
-
-        $model->update($id, $data);
-
-        return redirect()->to(site_url('dashboard/knowledge-base'))->with('success', 'Data knowledge base berhasil diperbarui.');
+        return redirect()->to(site_url('dashboard/intents'))->with('success', 'Intent berhasil diperbarui.');
     }
 
     public function toggleKnowledgeBase(int $id): RedirectResponse
     {
-        $model = new ChatbotKnowledgeModel();
-        $model->ensureTable();
+        $model = new ChatbotIntentModel();
+        $model->ensureSchema();
         $item = $model->find($id);
 
         if (!$item) {
@@ -143,58 +138,165 @@ class Dashboard extends BaseController
             'status' => $item['status'] === 'active' ? 'inactive' : 'active',
         ]);
 
-        return redirect()->to(site_url('dashboard/knowledge-base'))->with('success', 'Status knowledge base berhasil diubah.');
+        return redirect()->to(site_url('dashboard/intents'))->with('success', 'Status intent berhasil diubah.');
     }
 
     public function deleteKnowledgeBase(int $id): RedirectResponse
     {
-        $model = new ChatbotKnowledgeModel();
-        $model->ensureTable();
-
-        if (!$model->find($id)) {
-            return redirect()->to(site_url('dashboard/knowledge-base'))->with('error', 'Data knowledge base tidak ditemukan.');
-        }
-
-        $model->delete($id);
-
-        return redirect()->to(site_url('dashboard/knowledge-base'))->with('success', 'Data knowledge base berhasil dihapus.');
+        return $this->deleteIntent($id);
     }
 
-    private function knowledgeBasePayload(): array
+    public function deleteIntent(int $id): RedirectResponse
     {
-        return [
-            'pertanyaan' => trim((string) $this->request->getPost('pertanyaan')),
-            'intent' => trim((string) $this->request->getPost('intent')),
-            'keyword' => trim((string) $this->request->getPost('keyword')),
-            'response' => trim((string) $this->request->getPost('response')),
-            'status' => trim((string) $this->request->getPost('status')) ?: 'active',
-            'priority' => (int) $this->request->getPost('priority'),
-            'source' => trim((string) $this->request->getPost('source')) ?: 'manual',
-        ];
+        $model = new ChatbotIntentModel();
+
+        try {
+            $model->deleteIntentRow($id);
+        } catch (\InvalidArgumentException $error) {
+            return redirect()->back()->with('error', $error->getMessage());
+        }
+
+        return redirect()->to(site_url('dashboard/intents'))->with('success', 'Intent berhasil dihapus.');
     }
 
-    private function validateKnowledgeBase(array $data): bool|string
+    public function trainingPhrases(): string
     {
-        if ($data['pertanyaan'] === '') {
-            return 'Pertanyaan wajib diisi.';
-        }
+        $model = new ChatbotIntentModel();
+        $keyword = trim((string) $this->request->getGet('q'));
+        $intentId = (int) $this->request->getGet('intent_id');
 
-        if ($data['intent'] === '') {
-            return 'Intent wajib diisi.';
-        }
-
-        if ($data['keyword'] === '') {
-            return 'Keyword wajib diisi.';
-        }
-
-        if ($data['response'] === '') {
-            return 'Response wajib diisi.';
-        }
-
-        if (!in_array($data['status'], ['active', 'inactive', 'draft'], true)) {
-            return 'Status tidak valid.';
-        }
-
-        return true;
+        return view('dashboard/training_phrases/index', [
+            'items' => $model->getTrainingPhraseRows($keyword, $intentId),
+            'intents' => $model->getSimpleIntents(),
+            'keyword' => $keyword,
+            'intentId' => $intentId,
+        ]);
     }
+
+    public function storeTrainingPhrase(): RedirectResponse
+    {
+        $model = new ChatbotIntentModel();
+
+        try {
+            $model->createTrainingPhrase($this->request->getPost());
+        } catch (\InvalidArgumentException $error) {
+            return redirect()->back()->withInput()->with('error', $error->getMessage());
+        }
+
+        return redirect()->to(site_url('dashboard/training-phrases'))->with('success', 'Training phrase berhasil ditambahkan.');
+    }
+
+    public function updateTrainingPhrase(int $id): RedirectResponse
+    {
+        $model = new ChatbotIntentModel();
+
+        try {
+            $model->updateTrainingPhrase($id, $this->request->getPost());
+        } catch (\InvalidArgumentException $error) {
+            return redirect()->back()->withInput()->with('error', $error->getMessage());
+        }
+
+        return redirect()->to(site_url('dashboard/training-phrases'))->with('success', 'Training phrase berhasil diperbarui.');
+    }
+
+    public function deleteTrainingPhrase(int $id): RedirectResponse
+    {
+        (new ChatbotIntentModel())->deleteTrainingPhrase($id);
+
+        return redirect()->to(site_url('dashboard/training-phrases'))->with('success', 'Training phrase berhasil dihapus.');
+    }
+
+    public function keywords(): string
+    {
+        $model = new ChatbotIntentModel();
+        $keyword = trim((string) $this->request->getGet('q'));
+        $intentId = (int) $this->request->getGet('intent_id');
+
+        return view('dashboard/keywords/index', [
+            'items' => $model->getKeywordRows($keyword, $intentId),
+            'intents' => $model->getSimpleIntents(),
+            'keyword' => $keyword,
+            'intentId' => $intentId,
+        ]);
+    }
+
+    public function storeKeyword(): RedirectResponse
+    {
+        $model = new ChatbotIntentModel();
+
+        try {
+            $model->createKeyword($this->request->getPost());
+        } catch (\InvalidArgumentException $error) {
+            return redirect()->back()->withInput()->with('error', $error->getMessage());
+        }
+
+        return redirect()->to(site_url('dashboard/keywords'))->with('success', 'Keyword berhasil ditambahkan.');
+    }
+
+    public function updateKeyword(int $id): RedirectResponse
+    {
+        $model = new ChatbotIntentModel();
+
+        try {
+            $model->updateKeyword($id, $this->request->getPost());
+        } catch (\InvalidArgumentException $error) {
+            return redirect()->back()->withInput()->with('error', $error->getMessage());
+        }
+
+        return redirect()->to(site_url('dashboard/keywords'))->with('success', 'Keyword berhasil diperbarui.');
+    }
+
+    public function deleteKeyword(int $id): RedirectResponse
+    {
+        (new ChatbotIntentModel())->deleteKeyword($id);
+
+        return redirect()->to(site_url('dashboard/keywords'))->with('success', 'Keyword berhasil dihapus.');
+    }
+
+    public function nlpRules(): string
+    {
+        $model = new ChatbotIntentModel();
+
+        return view('dashboard/nlp_rules/index', $model->getNlpRuleDataset());
+    }
+
+    public function storeNlpRule(string $type): RedirectResponse
+    {
+        $model = new ChatbotIntentModel();
+
+        try {
+            $model->createNlpRule($type, $this->request->getPost());
+        } catch (\InvalidArgumentException $error) {
+            return redirect()->back()->withInput()->with('error', $error->getMessage());
+        }
+
+        return redirect()->to(site_url('dashboard/nlp-rules') . '#' . $type)->with('success', 'Rule NLP berhasil ditambahkan.');
+    }
+
+    public function updateNlpRule(string $type, int $id): RedirectResponse
+    {
+        $model = new ChatbotIntentModel();
+
+        try {
+            $model->updateNlpRule($type, $id, $this->request->getPost());
+        } catch (\InvalidArgumentException $error) {
+            return redirect()->back()->withInput()->with('error', $error->getMessage());
+        }
+
+        return redirect()->to(site_url('dashboard/nlp-rules') . '#' . $type)->with('success', 'Rule NLP berhasil diperbarui.');
+    }
+
+    public function deleteNlpRule(string $type, int $id): RedirectResponse
+    {
+        $model = new ChatbotIntentModel();
+
+        try {
+            $model->deleteNlpRule($type, $id);
+        } catch (\InvalidArgumentException $error) {
+            return redirect()->back()->with('error', $error->getMessage());
+        }
+
+        return redirect()->to(site_url('dashboard/nlp-rules') . '#' . $type)->with('success', 'Rule NLP berhasil dihapus.');
+    }
+
 }

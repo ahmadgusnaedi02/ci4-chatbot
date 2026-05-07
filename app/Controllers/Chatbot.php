@@ -2,37 +2,14 @@
 
 namespace App\Controllers;
 
-use App\Models\ChatbotKnowledgeModel;
+use App\Models\ChatbotIntentModel;
 use CodeIgniter\RESTful\ResourceController;
 
 class Chatbot extends ResourceController
 {
     protected $format = 'json';
 
-    private array $synonymMap = [
-        'dibuka' => 'pendaftaran',
-        'mulai' => 'pendaftaran',
-        'persyaratan' => 'syarat',
-        'syaratnya' => 'syarat',
-        'daftar' => 'pendaftaran',
-        'mendaftar' => 'pendaftaran',
-        'lokasi' => 'alamat',
-        'dimana' => 'alamat',
-        'mana' => 'alamat',
-        'sekolahnya' => 'sekolah',
-    ];
-
-    private array $stopWords = [
-        'apa',
-        'aja',
-        'saja',
-        'yang',
-        'untuk',
-        'di',
-        'ke',
-        'itu',
-        'ini',
-    ];
+    private ?array $nlpRules = null;
 
     private function normalizeText(string $text): string
     {
@@ -46,19 +23,37 @@ class Chatbot extends ResourceController
     private function tokenize(string $text): array
     {
         $tokens = preg_split('/\s+/', $this->normalizeText($text), -1, PREG_SPLIT_NO_EMPTY);
-        $tokens = array_map(function ($token) {
-            if (isset($this->synonymMap[$token])) {
-                return $this->synonymMap[$token];
+        $tokens = array_map(fn ($token) => $this->normalizeToken($token), $tokens ?: []);
+        $rules = $this->getNlpRules();
+
+        return array_values(array_filter($tokens, fn ($token) => !in_array($token, $rules['stopWords'], true)));
+    }
+
+    private function normalizeToken(string $token): string
+    {
+        $rules = $this->getNlpRules();
+
+        if (isset($rules['synonyms'][$token])) {
+            return $rules['synonyms'][$token];
+        }
+
+        foreach ($rules['suffixes'] as $suffix) {
+            if (strlen($token) > strlen($suffix) + 3 && str_ends_with($token, $suffix)) {
+                $token = substr($token, 0, -strlen($suffix));
+                break;
             }
+        }
 
-            if (strlen($token) > 5 && str_ends_with($token, 'nya')) {
-                $token = substr($token, 0, -3);
-            }
+        return $rules['synonyms'][$token] ?? $token;
+    }
 
-            return $this->synonymMap[$token] ?? $token;
-        }, $tokens ?: []);
+    private function getNlpRules(): array
+    {
+        if ($this->nlpRules === null) {
+            $this->nlpRules = (new ChatbotIntentModel())->getNlpRules();
+        }
 
-        return array_values(array_filter($tokens, fn ($token) => !in_array($token, $this->stopWords, true)));
+        return $this->nlpRules;
     }
 
     private function findLocalAnswer(string $message): ?string
@@ -69,62 +64,100 @@ class Chatbot extends ResourceController
             return null;
         }
 
-        $knowledgeBase = (new ChatbotKnowledgeModel())->getActiveKnowledge();
-        if (!$knowledgeBase) {
+        $dataset = (new ChatbotIntentModel())->getActiveTrainingDataset();
+        if (!$dataset) {
             return null;
         }
 
-        $best = [
-            'distance' => PHP_INT_MAX,
-            'response' => null,
-        ];
+        return $this->findNaiveBayesAnswer($message, $dataset);
+    }
 
-        foreach ($knowledgeBase as $item) {
-            $target = $this->normalizeText((string) $item['pertanyaan']);
-            $distance = levenshtein($query, $target);
-
-            if ($distance < $best['distance']) {
-                $best = [
-                    'distance' => $distance,
-                    'response' => $item['response'],
-                ];
-            }
-        }
-
-        $maxDistance = max(1, (int) floor(strlen($query) * 0.4));
-        if ($best['response'] && $best['distance'] <= $maxDistance) {
-            return $best['response'];
-        }
-
+    private function findNaiveBayesAnswer(string $message, array $dataset): ?string
+    {
         $queryTokens = array_values(array_filter($this->tokenize($message), fn ($token) => strlen($token) > 2));
         if (!$queryTokens) {
             return null;
         }
 
-        $bestScore = 0;
-        $bestResponse = null;
+        $classes = [];
+        $vocabulary = [];
+        $totalDocuments = 0;
 
-        foreach ($knowledgeBase as $item) {
-            $searchText = implode(' ', array_filter([
-                (string) ($item['pertanyaan'] ?? ''),
-                (string) ($item['intent'] ?? ''),
-                (string) ($item['keyword'] ?? ''),
-            ]));
-            $itemTokens = array_values(array_filter($this->tokenize($searchText), fn ($token) => strlen($token) > 2));
-            if (!$itemTokens) {
+        foreach ($dataset as $item) {
+            $intent = trim((string) ($item['name'] ?? ''));
+            if ($intent === '') {
                 continue;
             }
 
-            $matches = count(array_intersect($itemTokens, $queryTokens));
-            $score = ($matches / count($queryTokens)) + ($matches / max(1, count($itemTokens)));
+            $trainingText = implode(' ', array_merge(
+                $item['training_phrases'] ?? [],
+                $item['keywords'] ?? []
+            ));
+            $tokens = array_values(array_filter($this->tokenize($trainingText), fn ($token) => strlen($token) > 2));
+            if (!$tokens) {
+                continue;
+            }
 
-            if ($score > $bestScore) {
-                $bestScore = $score;
-                $bestResponse = $item['response'];
+            if (!isset($classes[$intent])) {
+                $classes[$intent] = [
+                    'documentCount' => 0,
+                    'tokenCount' => 0,
+                    'tokens' => [],
+                    'bestResponse' => null,
+                    'bestPriority' => PHP_INT_MIN,
+                ];
+            }
+
+            $classes[$intent]['documentCount']++;
+            $totalDocuments++;
+
+            foreach ($tokens as $token) {
+                $classes[$intent]['tokens'][$token] = ($classes[$intent]['tokens'][$token] ?? 0) + 1;
+                $classes[$intent]['tokenCount']++;
+                $vocabulary[$token] = true;
+            }
+
+            $priority = (int) ($item['priority'] ?? 0);
+            if ($priority > $classes[$intent]['bestPriority']) {
+                $classes[$intent]['bestPriority'] = $priority;
+                $classes[$intent]['bestResponse'] = $item['response'] ?? null;
             }
         }
 
-        return $bestScore >= 1 ? $bestResponse : null;
+        if (!$classes || $totalDocuments === 0 || !$vocabulary) {
+            return null;
+        }
+
+        $vocabularySize = count($vocabulary);
+        $bestIntent = null;
+        $bestScore = null;
+        $bestMatchedTokens = 0;
+
+        foreach ($classes as $intent => $classData) {
+            $score = log($classData['documentCount'] / $totalDocuments);
+            $matchedTokens = 0;
+
+            foreach ($queryTokens as $token) {
+                $tokenFrequency = $classData['tokens'][$token] ?? 0;
+                if ($tokenFrequency > 0) {
+                    $matchedTokens++;
+                }
+
+                $score += log(($tokenFrequency + 1) / ($classData['tokenCount'] + $vocabularySize));
+            }
+
+            if ($bestScore === null || $score > $bestScore) {
+                $bestScore = $score;
+                $bestIntent = $intent;
+                $bestMatchedTokens = $matchedTokens;
+            }
+        }
+
+        if ($bestIntent === null || $bestMatchedTokens === 0) {
+            return null;
+        }
+
+        return $classes[$bestIntent]['bestResponse'] ?: null;
     }
 
     private function choiceResponse(string $content): array
@@ -206,14 +239,23 @@ class Chatbot extends ResourceController
     private function wantsCustomerService(string $text): bool
     {
         $normalized = $this->normalizeText($text);
+        $tokens = $this->tokenize($text);
 
-        foreach (['cs', 'customer service', 'admin', 'terhubung', 'hubungkan', 'operator', 'iya', 'ya', 'mau'] as $keyword) {
-            if (str_contains($normalized, $keyword)) {
+        foreach (['customer service', 'terhubung dengan cs', 'hubungkan ke cs'] as $phrase) {
+            if (str_contains($normalized, $phrase)) {
                 return true;
             }
         }
 
-        return false;
+        return (bool) array_intersect($tokens, [
+            'cs',
+            'admin',
+            'operator',
+            'iya',
+            'ya',
+            'mau',
+            'boleh',
+        ]);
     }
 
     private function getOpenSupportTicket(int $chatId): ?array
@@ -276,8 +318,6 @@ class Chatbot extends ResourceController
 
     public function chat()
     {
-        $apiKey = getenv('GROQ_API_KEY');
-
         $input = $this->request->getJSON();
         $message = trim((string) ($input->message ?? ''));
         $source = strtolower(trim((string) ($input->source ?? '')));
@@ -295,22 +335,6 @@ class Chatbot extends ResourceController
             $userMessageId = $this->insertMessage($chatId, 'incoming', 'user', $message, [
                 'answered_by_chatbot' => 0,
             ]);
-
-            $openTicket = $this->getOpenSupportTicket($chatId);
-            if ($openTicket) {
-                $reply = 'Pesan Anda sudah diteruskan ke CS. Mohon tunggu balasan admin.';
-                $this->insertMessage($chatId, 'outgoing', 'bot', $reply, [
-                    'chatbot_understood' => 0,
-                    'needs_cs' => 1,
-                    'is_training_candidate' => 1,
-                ]);
-
-                return $this->respond(array_merge($this->choiceResponse($reply), [
-                    'chat_id' => $chatId,
-                    'ticket_id' => (int) $openTicket['id'],
-                    'handoff' => true,
-                ]));
-            }
 
             if ($this->webChatHasHandoffOffer($chatId) && $this->wantsCustomerService($message)) {
                 $ticketId = $this->createSupportTicket($chatId, $userMessageId);
@@ -347,68 +371,39 @@ class Chatbot extends ResourceController
             ]));
         }
 
-        if (!$apiKey) {
-            $fallback = 'Maaf, saya belum bisa memahami pertanyaan Anda. Apakah Anda ingin terhubung dengan CS?';
+        if ($isWebChat && $chatId && $openTicket = $this->getOpenSupportTicket($chatId)) {
+            $reply = 'Pesan Anda sudah diteruskan ke CS. Mohon tunggu balasan admin.';
+            $this->insertMessage($chatId, 'outgoing', 'bot', $reply, [
+                'chatbot_understood' => 0,
+                'needs_cs' => 1,
+                'is_training_candidate' => 1,
+            ]);
 
-            if ($isWebChat && $chatId) {
-                $this->insertMessage($chatId, 'outgoing', 'bot', $fallback, [
-                    'chatbot_understood' => 0,
-                    'needs_cs' => 1,
-                    'is_training_candidate' => 1,
-                ]);
-                db_connect()->table('wa_messages')->where('id', $userMessageId)->update([
-                    'answered_by_chatbot' => 1,
-                    'chatbot_understood' => 0,
-                    'needs_cs' => 1,
-                    'is_training_candidate' => 1,
-                    'updated_at' => $this->now(),
-                ]);
-            }
-
-            return $this->respond(array_merge($this->choiceResponse($fallback), [
+            return $this->respond(array_merge($this->choiceResponse($reply), [
                 'chat_id' => $chatId,
+                'ticket_id' => (int) $openTicket['id'],
+                'handoff' => true,
             ]));
         }
 
-        $client = \Config\Services::curlrequest();
-
-        $response = $client->post('https://api.groq.com/openai/v1/chat/completions', [
-            'headers' => [
-                'Authorization' => 'Bearer ' . $apiKey,
-                'Content-Type' => 'application/json',
-            ],
-            'json' => [
-                'model' => 'llama-3.1-8b-instant',
-                'messages' => [
-                    [
-                        'role' => 'system',
-                        'content' => 'Anda adalah chatbot customer service berbahasa Indonesia. Jawab dengan singkat, jelas, dan sopan. Jika pertanyaan tidak bisa dijawab dengan yakin, jangan mengarang. Jawab persis dengan pola: "Maaf, saya belum bisa memahami pertanyaan Anda. Apakah Anda ingin terhubung dengan CS?"'
-                    ],
-                    ['role' => 'user', 'content' => $message]
-                ],
-            ]
-        ]);
-
-        $body = json_decode($response->getBody());
-        $reply = trim((string) ($body->choices[0]->message->content ?? 'Maaf, chatbot belum bisa menjawab pesan ini.'));
+        $fallback = 'Maaf, saya belum bisa memahami pertanyaan Anda. Apakah Anda ingin terhubung dengan CS?';
 
         if ($isWebChat && $chatId) {
-            $understood = !$this->isCustomerServiceOffer($reply);
-            $this->insertMessage($chatId, 'outgoing', 'bot', $reply, [
-                'chatbot_understood' => $understood ? 1 : 0,
-                'needs_cs' => $understood ? 0 : 1,
-                'is_training_candidate' => $understood ? 0 : 1,
+            $this->insertMessage($chatId, 'outgoing', 'bot', $fallback, [
+                'chatbot_understood' => 0,
+                'needs_cs' => 1,
+                'is_training_candidate' => 1,
             ]);
             db_connect()->table('wa_messages')->where('id', $userMessageId)->update([
                 'answered_by_chatbot' => 1,
-                'chatbot_understood' => $understood ? 1 : 0,
-                'needs_cs' => $understood ? 0 : 1,
-                'is_training_candidate' => $understood ? 0 : 1,
+                'chatbot_understood' => 0,
+                'needs_cs' => 1,
+                'is_training_candidate' => 1,
                 'updated_at' => $this->now(),
             ]);
         }
 
-        return $this->respond(array_merge((array) $body, [
+        return $this->respond(array_merge($this->choiceResponse($fallback), [
             'chat_id' => $chatId,
         ]));
     }

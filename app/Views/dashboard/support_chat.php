@@ -62,7 +62,7 @@
                                 </form>
 
                                 <div class="alert alert-info mt-3 mb-0" id="supportMessage">
-                                    Menunggu data dari service Node.js.
+                                    Menunggu data antrian CS.
                                 </div>
                             </div>
                         </div>
@@ -135,6 +135,8 @@
 
     <script src="http://localhost:3001/socket.io/socket.io.js"></script>
     <script>
+        const ciSupportApiBase = '<?= site_url('api/wa/support-chats') ?>';
+        const nodeSupportApiBase = 'http://localhost:3001/api/support-chats';
         const ticketList = document.getElementById('ticketList');
         const ticketCount = document.getElementById('ticketCount');
         const chatTitle = document.getElementById('chatTitle');
@@ -177,6 +179,16 @@
                 '"': '&quot;',
                 "'": '&#039;',
             }[char]));
+        }
+
+        function isWebTicket(ticket) {
+            return String(ticket?.from || '').startsWith('WEB-');
+        }
+
+        function supportActionUrl(ticket, action) {
+            const base = isWebTicket(ticket) ? ciSupportApiBase : nodeSupportApiBase;
+
+            return `${base}/${encodeURIComponent(ticket.id)}/${action}`;
         }
 
         function renderTickets() {
@@ -242,8 +254,13 @@
 
         async function loadTickets(quiet = false) {
             try {
-                const response = await fetch('http://localhost:3001/api/support-chats');
+                const response = await fetch(ciSupportApiBase);
                 const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.message || 'Gagal memuat antrian CS.');
+                }
+
                 tickets = data.tickets || [];
 
                 if (selectedTicketId && !tickets.some((ticket) => ticket.id === selectedTicketId)) {
@@ -256,7 +273,7 @@
                     setSupportMessage('Data antrian CS berhasil dimuat.', 'success');
                 }
             } catch (error) {
-                setSupportMessage('Service Node.js belum terhubung. Pastikan port 3001 aktif.', 'danger');
+                setSupportMessage(error.message, 'danger');
             }
         }
 
@@ -286,7 +303,7 @@
             setSupportMessage('Mengirim balasan admin...', 'info');
 
             try {
-                const response = await fetch(`http://localhost:3001/api/support-chats/${ticket.id}/reply`, {
+                const response = await fetch(supportActionUrl(ticket, 'reply'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: text }),
@@ -318,7 +335,7 @@
             setSupportMessage('Mengakhiri chat CS...', 'info');
 
             try {
-                const response = await fetch(`http://localhost:3001/api/support-chats/${ticket.id}/end`, {
+                const response = await fetch(supportActionUrl(ticket, 'end'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({}),
