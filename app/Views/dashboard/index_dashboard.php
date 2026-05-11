@@ -1,6 +1,17 @@
 <?= $this->include('dashboard/layout/header') ?>
 <?= $this->include('dashboard/layout/navbar') ?>
 <?= $this->include('dashboard/layout/sidebar') ?>
+<?php
+$stats = $stats ?? [
+    'questioners' => 0,
+    'intents' => 0,
+    'datasets' => 0,
+    'chats' => 0,
+];
+$chartLabels = $chartLabels ?? [];
+$chatChartData = $chatChartData ?? [];
+$questionerChartData = $questionerChartData ?? [];
+?>
 
 <div class="main-panel">
     <div class="content-wrapper admin-content">
@@ -37,40 +48,76 @@
             <div class="col-md-6 col-xl-3 grid-margin stretch-card">
                 <div class="card admin-stat-card">
                     <div class="card-body">
-                        <div class="admin-stat-icon blue"><i class="mdi mdi-whatsapp"></i></div>
-                        <p>Koneksi WhatsApp</p>
-                        <h3>Siap Dicek</h3>
-                        <span>Scan QR untuk mengaktifkan client.</span>
+                        <div class="admin-stat-icon blue"><i class="mdi mdi-account-question-outline"></i></div>
+                        <p>Jumlah Penanya</p>
+                        <h3><?= number_format((int) $stats['questioners'], 0, ',', '.') ?></h3>
+                        <span>Total kontak yang pernah bertanya.</span>
                     </div>
                 </div>
             </div>
             <div class="col-md-6 col-xl-3 grid-margin stretch-card">
                 <div class="card admin-stat-card">
                     <div class="card-body">
-                        <div class="admin-stat-icon red"><i class="mdi mdi-headset"></i></div>
-                        <p>Antrian CS</p>
-                        <h3>Live Support</h3>
-                        <span>Balas chat yang meminta admin.</span>
+                        <div class="admin-stat-icon red"><i class="mdi mdi-brain"></i></div>
+                        <p>Jumlah Intent</p>
+                        <h3><?= number_format((int) $stats['intents'], 0, ',', '.') ?></h3>
+                        <span>Kategori jawaban yang tersedia.</span>
                     </div>
                 </div>
             </div>
             <div class="col-md-6 col-xl-3 grid-margin stretch-card">
                 <div class="card admin-stat-card">
                     <div class="card-body">
-                        <div class="admin-stat-icon teal"><i class="mdi mdi-history"></i></div>
-                        <p>Riwayat Chat</p>
-                        <h3>Terekam</h3>
-                        <span>Cari percakapan dan kandidat data latih.</span>
+                        <div class="admin-stat-icon teal"><i class="mdi mdi-database-outline"></i></div>
+                        <p>Jumlah Dataset</p>
+                        <h3><?= number_format((int) $stats['datasets'], 0, ',', '.') ?></h3>
+                        <span>Contoh kalimat latih chatbot.</span>
                     </div>
                 </div>
             </div>
             <div class="col-md-6 col-xl-3 grid-margin stretch-card">
                 <div class="card admin-stat-card">
                     <div class="card-body">
-                        <div class="admin-stat-icon yellow"><i class="mdi mdi-robot-outline"></i></div>
-                        <p>Chatbot SPMB</p>
-                        <h3>Aktif</h3>
-                        <span>Menjawab informasi pendaftaran.</span>
+                        <div class="admin-stat-icon yellow"><i class="mdi mdi-message-text-outline"></i></div>
+                        <p>Jumlah Chat</p>
+                        <h3><?= number_format((int) $stats['chats'], 0, ',', '.') ?></h3>
+                        <span>Total pesan masuk dan keluar.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-8 grid-margin stretch-card">
+                <div class="card admin-card admin-chart-card">
+                    <div class="card-body">
+                        <div class="admin-card-head admin-chart-head">
+                            <div>
+                                <h4>Jumlah Chat per Hari</h4>
+                                <p>Aktivitas pesan masuk dan keluar selama 7 hari terakhir.</p>
+                            </div>
+                            <span class="admin-chart-badge">7 Hari</span>
+                        </div>
+                        <div class="admin-chart-wrap">
+                            <canvas id="dailyChatChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4 grid-margin stretch-card">
+                <div class="card admin-card admin-chart-card">
+                    <div class="card-body">
+                        <div class="admin-card-head admin-chart-head">
+                            <div>
+                                <h4>Penanya per Hari</h4>
+                                <p>Kontak baru yang memulai percakapan.</p>
+                            </div>
+                            <span class="admin-chart-badge teal">Harian</span>
+                        </div>
+                        <div class="admin-chart-wrap compact">
+                            <canvas id="dailyQuestionerChart"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -150,5 +197,93 @@
             </div>
         </div>
     </div>
+
+    <script>
+        window.dashboardChartData = {
+            labels: <?= json_encode($chartLabels, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            chats: <?= json_encode($chatChartData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            questioners: <?= json_encode($questionerChartData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>
+        };
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!window.Chart || !window.dashboardChartData) {
+                return;
+            }
+
+            const chartData = window.dashboardChartData;
+            const sharedOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: '#657487',
+                            font: {
+                                weight: 700
+                            }
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(101, 116, 135, 0.14)'
+                        },
+                        ticks: {
+                            color: '#657487',
+                            precision: 0
+                        }
+                    }
+                }
+            };
+
+            const chatCanvas = document.getElementById('dailyChatChart');
+            if (chatCanvas) {
+                new Chart(chatCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: chartData.labels,
+                        datasets: [{
+                            data: chartData.chats,
+                            borderColor: '#104f86',
+                            backgroundColor: 'rgba(16, 79, 134, 0.14)',
+                            borderWidth: 3,
+                            fill: true,
+                            pointBackgroundColor: '#104f86',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 2,
+                            pointRadius: 4,
+                            tension: 0.35
+                        }]
+                    },
+                    options: sharedOptions
+                });
+            }
+
+            const questionerCanvas = document.getElementById('dailyQuestionerChart');
+            if (questionerCanvas) {
+                new Chart(questionerCanvas, {
+                    type: 'bar',
+                    data: {
+                        labels: chartData.labels,
+                        datasets: [{
+                            data: chartData.questioners,
+                            backgroundColor: '#5f9ea0',
+                            borderRadius: 8,
+                            maxBarThickness: 34
+                        }]
+                    },
+                    options: sharedOptions
+                });
+            }
+        });
+    </script>
 
     <?= $this->include('dashboard/layout/footer') ?>

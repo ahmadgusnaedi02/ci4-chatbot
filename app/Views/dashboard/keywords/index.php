@@ -83,31 +83,24 @@
                         <tbody>
                             <?php foreach ($items as $item): ?>
                                 <tr>
+                                    <td><span class="admin-code-chip"><?= esc($item['intent_name'] ?? '-') ?></span></td>
+                                    <td><span class="admin-keyword-text"><?= esc($item['keyword']) ?></span></td>
                                     <td>
-                                        <form id="keyword-update-<?= esc((string) $item['id']) ?>" action="<?= site_url('dashboard/keywords/' . $item['id']) ?>" method="post"></form>
-                                        <input type="hidden" name="<?= csrf_token() ?>" value="<?= csrf_hash() ?>" form="keyword-update-<?= esc((string) $item['id']) ?>">
-                                        <select class="form-control" name="intent_id" form="keyword-update-<?= esc((string) $item['id']) ?>" required>
-                                            <?php foreach ($intents as $intent): ?>
-                                                <option value="<?= esc((string) $intent['id']) ?>" <?= (int) $intent['id'] === (int) $item['intent_id'] ? 'selected' : '' ?>>
-                                                    <?= esc($intent['name']) ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </td>
-                                    <td>
-                                        <input class="form-control" name="keyword" type="text" value="<?= esc($item['keyword']) ?>" form="keyword-update-<?= esc((string) $item['id']) ?>" required>
-                                    </td>
-                                    <td>
-                                        <div class="d-flex gap-2">
-                                            <button class="btn btn-outline-primary btn-sm" form="keyword-update-<?= esc((string) $item['id']) ?>" type="submit">
-                                                <i class="mdi mdi-content-save"></i>
+                                        <div class="dropdown admin-row-actions">
+                                            <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                Aksi
                                             </button>
-                                            <form action="<?= site_url('dashboard/keywords/' . $item['id'] . '/delete') ?>" method="post" onsubmit="return confirm('Hapus keyword ini?')">
-                                                <?= csrf_field() ?>
-                                                <button class="btn btn-outline-danger btn-sm" type="submit">
-                                                    <i class="mdi mdi-delete"></i>
+                                            <div class="dropdown-menu dropdown-menu-end">
+                                                <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#keyword-edit-<?= esc((string) $item['id']) ?>">
+                                                    <i class="mdi mdi-pencil me-2"></i>Edit
                                                 </button>
-                                            </form>
+                                                <form action="<?= site_url('dashboard/keywords/' . $item['id'] . '/delete') ?>" method="post" onsubmit="return confirm('Hapus keyword ini?')">
+                                                    <?= csrf_field() ?>
+                                                    <button class="dropdown-item text-danger" type="submit">
+                                                        <i class="mdi mdi-delete me-2"></i>Hapus
+                                                    </button>
+                                                </form>
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>
@@ -120,6 +113,42 @@
                         </tbody>
                     </table>
                 </div>
+
+                <?php foreach ($items as $item): ?>
+                    <div class="modal fade" id="keyword-edit-<?= esc((string) $item['id']) ?>" tabindex="-1" aria-labelledby="keyword-edit-label-<?= esc((string) $item['id']) ?>" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <form class="modal-content admin-modal" action="<?= site_url('dashboard/keywords/' . $item['id']) ?>" method="post">
+                                <?= csrf_field() ?>
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="keyword-edit-label-<?= esc((string) $item['id']) ?>">Edit Keyword</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <label class="form-label" for="keyword-intent-<?= esc((string) $item['id']) ?>">Intent</label>
+                                        <select class="form-control" id="keyword-intent-<?= esc((string) $item['id']) ?>" name="intent_id" required>
+                                            <?php foreach ($intents as $intent): ?>
+                                                <option value="<?= esc((string) $intent['id']) ?>" <?= (int) $intent['id'] === (int) $item['intent_id'] ? 'selected' : '' ?>>
+                                                    <?= esc($intent['name']) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="mb-0">
+                                        <label class="form-label" for="keyword-text-<?= esc((string) $item['id']) ?>">Keyword</label>
+                                        <input class="form-control" id="keyword-text-<?= esc((string) $item['id']) ?>" name="keyword" type="text" value="<?= esc($item['keyword']) ?>" required>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                                    <button class="btn admin-primary-btn" type="submit">
+                                        <i class="mdi mdi-content-save me-1"></i> Simpan
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
             </div>
         </div>
     </div>

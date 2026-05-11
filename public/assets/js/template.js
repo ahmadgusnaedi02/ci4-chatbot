@@ -10,10 +10,22 @@
     //Add active class to nav-link based on url dynamically
     //Active class can be hard coded directly in html file also as required
 
+    function normalizePath(path) {
+      return path.replace(/^\/|\/$/g, '');
+    }
+
     function addActiveClass(element) {
+      var href = element.attr('href') || '';
+
+      if (href.charAt(0) === '#') {
+        return;
+      }
+
+      var linkPath = normalizePath(element[0].pathname);
+
       if (current === "") {
         //for root url
-        if (element.attr('href').indexOf("index.html") !== -1) {
+        if (linkPath === "index.html") {
           element.parents('.nav-item').last().addClass('active');
           if (element.parents('.sub-menu').length) {
             element.closest('.collapse').addClass('show');
@@ -22,7 +34,7 @@
         }
       } else {
         //for other url
-        if (element.attr('href').indexOf(current) !== -1) {
+        if (linkPath === current) {
           element.parents('.nav-item').last().addClass('active');
           if (element.parents('.sub-menu').length) {
             element.closest('.collapse').addClass('show');
@@ -35,7 +47,7 @@
       }
     }
 
-    var current = location.pathname.split("/").slice(-1)[0].replace(/^\/|\/$/g, '');
+    var current = normalizePath(location.pathname);
     $('.nav li a', sidebar).each(function () {
       var $this = $(this);
       addActiveClass($this);

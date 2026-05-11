@@ -88,34 +88,27 @@
                         <tbody>
                             <?php foreach ($items as $item): ?>
                                 <tr>
+                                    <td><span class="admin-code-chip"><?= esc($item['intent_name'] ?? '-') ?></span></td>
                                     <td>
-                                        <form id="phrase-update-<?= esc((string) $item['id']) ?>" action="<?= site_url('dashboard/training-phrases/' . $item['id']) ?>" method="post"></form>
-                                        <input type="hidden" name="<?= csrf_token() ?>" value="<?= csrf_hash() ?>" form="phrase-update-<?= esc((string) $item['id']) ?>">
-                                        <select class="form-control" name="intent_id" form="phrase-update-<?= esc((string) $item['id']) ?>" required>
-                                            <?php foreach ($intents as $intent): ?>
-                                                <option value="<?= esc((string) $intent['id']) ?>" <?= (int) $intent['id'] === (int) $item['intent_id'] ? 'selected' : '' ?>>
-                                                    <?= esc($intent['name']) ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
+                                        <div class="admin-response-preview"><?= esc($item['phrase']) ?></div>
                                     </td>
+                                    <td><?= esc($item['source'] ?? 'manual') ?></td>
                                     <td>
-                                        <input class="form-control" name="phrase" type="text" value="<?= esc($item['phrase']) ?>" form="phrase-update-<?= esc((string) $item['id']) ?>" required>
-                                    </td>
-                                    <td>
-                                        <input class="form-control" name="source" type="text" value="<?= esc($item['source'] ?? 'manual') ?>" form="phrase-update-<?= esc((string) $item['id']) ?>">
-                                    </td>
-                                    <td>
-                                        <div class="d-flex gap-2">
-                                            <button class="btn btn-outline-primary btn-sm" form="phrase-update-<?= esc((string) $item['id']) ?>" type="submit">
-                                                <i class="mdi mdi-content-save"></i>
+                                        <div class="dropdown admin-row-actions">
+                                            <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                Aksi
                                             </button>
-                                            <form action="<?= site_url('dashboard/training-phrases/' . $item['id'] . '/delete') ?>" method="post" onsubmit="return confirm('Hapus training phrase ini?')">
-                                                <?= csrf_field() ?>
-                                                <button class="btn btn-outline-danger btn-sm" type="submit">
-                                                    <i class="mdi mdi-delete"></i>
+                                            <div class="dropdown-menu dropdown-menu-end">
+                                                <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#phrase-edit-<?= esc((string) $item['id']) ?>">
+                                                    <i class="mdi mdi-pencil me-2"></i>Edit
                                                 </button>
-                                            </form>
+                                                <form action="<?= site_url('dashboard/training-phrases/' . $item['id'] . '/delete') ?>" method="post" onsubmit="return confirm('Hapus training phrase ini?')">
+                                                    <?= csrf_field() ?>
+                                                    <button class="dropdown-item text-danger" type="submit">
+                                                        <i class="mdi mdi-delete me-2"></i>Hapus
+                                                    </button>
+                                                </form>
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>
@@ -128,6 +121,46 @@
                         </tbody>
                     </table>
                 </div>
+
+                <?php foreach ($items as $item): ?>
+                    <div class="modal fade" id="phrase-edit-<?= esc((string) $item['id']) ?>" tabindex="-1" aria-labelledby="phrase-edit-label-<?= esc((string) $item['id']) ?>" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <form class="modal-content admin-modal" action="<?= site_url('dashboard/training-phrases/' . $item['id']) ?>" method="post">
+                                <?= csrf_field() ?>
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="phrase-edit-label-<?= esc((string) $item['id']) ?>">Edit Training Phrase</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <label class="form-label" for="phrase-intent-<?= esc((string) $item['id']) ?>">Intent</label>
+                                        <select class="form-control" id="phrase-intent-<?= esc((string) $item['id']) ?>" name="intent_id" required>
+                                            <?php foreach ($intents as $intent): ?>
+                                                <option value="<?= esc((string) $intent['id']) ?>" <?= (int) $intent['id'] === (int) $item['intent_id'] ? 'selected' : '' ?>>
+                                                    <?= esc($intent['name']) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label" for="phrase-text-<?= esc((string) $item['id']) ?>">Training Phrase</label>
+                                        <input class="form-control" id="phrase-text-<?= esc((string) $item['id']) ?>" name="phrase" type="text" value="<?= esc($item['phrase']) ?>" required>
+                                    </div>
+                                    <div class="mb-0">
+                                        <label class="form-label" for="phrase-source-<?= esc((string) $item['id']) ?>">Source</label>
+                                        <input class="form-control" id="phrase-source-<?= esc((string) $item['id']) ?>" name="source" type="text" value="<?= esc($item['source'] ?? 'manual') ?>">
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                                    <button class="btn admin-primary-btn" type="submit">
+                                        <i class="mdi mdi-content-save me-1"></i> Simpan
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
             </div>
         </div>
     </div>

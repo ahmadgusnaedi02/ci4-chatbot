@@ -9,8 +9,108 @@ class Dashboard extends BaseController
 {
     public function index(): string
     {
-        return view('dashboard/index_dashboard');
+        return view('dashboard/index_dashboard', $this->getDashboardSummary());
 
+    }
+
+    private function getDashboardSummary(): array
+    {
+        $intentModel = new ChatbotIntentModel();
+        $intentModel->ensureSchema();
+
+        $db = db_connect();
+        $dateRange = $this->lastSevenDays();
+
+        $stats = [
+            'questioners' => $this->countRows($db, 'wa_chats'),
+            'intents' => $this->countRows($db, 'chatbot_intents'),
+            'datasets' => $this->countRows($db, 'chatbot_training_phrases'),
+            'chats' => $this->countRows($db, 'wa_messages'),
+        ];
+
+        return [
+            'stats' => $stats,
+            'chartLabels' => array_column($dateRange, 'label'),
+            'chatChartData' => array_values($this->dailyMessageCounts($db, array_column($dateRange, 'date'))),
+            'questionerChartData' => array_values($this->dailyQuestionerCounts($db, array_column($dateRange, 'date'))),
+        ];
+    }
+
+    private function countRows($db, string $table): int
+    {
+        if (!$db->tableExists($table)) {
+            return 0;
+        }
+
+        return (int) $db->table($table)->countAllResults();
+    }
+
+    private function lastSevenDays(): array
+    {
+        $days = [];
+
+        for ($i = 6; $i >= 0; $i--) {
+            $time = strtotime("-{$i} days");
+            $days[] = [
+                'date' => date('Y-m-d', $time),
+                'label' => date('d M', $time),
+            ];
+        }
+
+        return $days;
+    }
+
+    private function emptyDailySeries(array $dates): array
+    {
+        return array_fill_keys($dates, 0);
+    }
+
+    private function dailyMessageCounts($db, array $dates): array
+    {
+        $series = $this->emptyDailySeries($dates);
+
+        if (!$db->tableExists('wa_messages')) {
+            return $series;
+        }
+
+        $rows = $db->table('wa_messages')
+            ->select('DATE(COALESCE(sent_at, created_at)) AS day, COUNT(*) AS total', false)
+            ->where('DATE(COALESCE(sent_at, created_at)) >= ' . $db->escape($dates[0]), null, false)
+            ->groupBy('day', false)
+            ->get()
+            ->getResultArray();
+
+        foreach ($rows as $row) {
+            if (array_key_exists($row['day'], $series)) {
+                $series[$row['day']] = (int) $row['total'];
+            }
+        }
+
+        return $series;
+    }
+
+    private function dailyQuestionerCounts($db, array $dates): array
+    {
+        $series = $this->emptyDailySeries($dates);
+
+        if (!$db->tableExists('wa_chats')) {
+            return $series;
+        }
+
+        $rows = $db->table('wa_chats')
+            ->select('DATE(created_at) AS day, COUNT(DISTINCT wa_number) AS total', false)
+            ->where('DATE(created_at) >= ' . $db->escape($dates[0]), null, false)
+            ->groupBy('day', false)
+            ->get()
+            ->getResultArray();
+
+        foreach ($rows as $row) {
+            if (array_key_exists($row['day'], $series)) {
+                $series[$row['day']] = (int) $row['total'];
+            }
+        }
+
+        return $series;
     }
 
     public function scanWhatsapp(): string
