@@ -652,3 +652,115 @@ DEBUG - 2026-05-07 10:07:09 --> Session: Class initialized using 'CodeIgniter\Se
 DEBUG - 2026-05-07 10:07:10 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
 DEBUG - 2026-05-07 10:07:11 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
 DEBUG - 2026-05-07 10:07:14 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-05-07 13:40:35 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-05-07 13:40:39 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+ERROR - 2026-05-07 13:40:42 --> Error connecting to the database: mysqli_sql_exception: No connection could be made because the target machine actively refused it in C:\laragon\www\ci4-chatbot\system\Database\MySQLi\Connection.php:201
+Stack trace:
+#0 C:\laragon\www\ci4-chatbot\system\Database\MySQLi\Connection.php(201): mysqli->real_connect('127.0.0.1', 'root', Object(SensitiveParameterValue), 'db_chatbot', 3306, '', 0)
+#1 C:\laragon\www\ci4-chatbot\system\Database\BaseConnection.php(555): CodeIgniter\Database\MySQLi\Connection->connect(false)
+#2 C:\laragon\www\ci4-chatbot\system\Database\BaseConnection.php(795): CodeIgniter\Database\BaseConnection->initialize()
+#3 C:\laragon\www\ci4-chatbot\app\Controllers\Auth.php(13): CodeIgniter\Database\BaseConnection->query('\n            CR...')
+#4 C:\laragon\www\ci4-chatbot\app\Controllers\Auth.php(46): App\Controllers\Auth->ensureAdminTable()
+#5 C:\laragon\www\ci4-chatbot\system\CodeIgniter.php(951): App\Controllers\Auth->login()
+#6 C:\laragon\www\ci4-chatbot\system\CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Auth))
+#7 C:\laragon\www\ci4-chatbot\system\CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(NULL, Object(Config\Cache), false)
+#8 C:\laragon\www\ci4-chatbot\system\Boot.php(417): CodeIgniter\CodeIgniter->run()
+#9 C:\laragon\www\ci4-chatbot\system\Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+#10 C:\laragon\www\ci4-chatbot\public\index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+#11 {main}
+
+Next CodeIgniter\Database\Exceptions\DatabaseException: No connection could be made because the target machine actively refused it in C:\laragon\www\ci4-chatbot\system\Database\MySQLi\Connection.php:231
+Stack trace:
+#0 C:\laragon\www\ci4-chatbot\system\Database\BaseConnection.php(555): CodeIgniter\Database\MySQLi\Connection->connect(false)
+#1 C:\laragon\www\ci4-chatbot\system\Database\BaseConnection.php(795): CodeIgniter\Database\BaseConnection->initialize()
+#2 C:\laragon\www\ci4-chatbot\app\Controllers\Auth.php(13): CodeIgniter\Database\BaseConnection->query('\n            CR...')
+#3 C:\laragon\www\ci4-chatbot\app\Controllers\Auth.php(46): App\Controllers\Auth->ensureAdminTable()
+#4 C:\laragon\www\ci4-chatbot\system\CodeIgniter.php(951): App\Controllers\Auth->login()
+#5 C:\laragon\www\ci4-chatbot\system\CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Auth))
+#6 C:\laragon\www\ci4-chatbot\system\CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(NULL, Object(Config\Cache), false)
+#7 C:\laragon\www\ci4-chatbot\system\Boot.php(417): CodeIgniter\CodeIgniter->run()
+#8 C:\laragon\www\ci4-chatbot\system\Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+#9 C:\laragon\www\ci4-chatbot\public\index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+#10 {main}
+CRITICAL - 2026-05-07 13:40:42 --> CodeIgniter\Database\Exceptions\DatabaseException: Unable to connect to the database.
+Main connection [MySQLi]: No connection could be made because the target machine actively refused it
+[Method: GET, Route: admin/login]
+in SYSTEMPATH\Database\BaseConnection.php on line 606.
+ 1 SYSTEMPATH\Database\BaseConnection.php(795): CodeIgniter\Database\BaseConnection->initialize()
+ 2 APPPATH\Controllers\Auth.php(13): CodeIgniter\Database\BaseConnection->query('
+            CREATE TABLE IF NOT EXISTS admin_users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(120) NOT NULL,
+                email VARCHAR(150) NOT NULL UNIQUE,
+                password_hash VARCHAR(255) NOT NULL,
+                role VARCHAR(50) NOT NULL DEFAULT \'admin\',
+                created_at DATETIME NULL,
+                updated_at DATETIME NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+        ')
+ 3 APPPATH\Controllers\Auth.php(46): App\Controllers\Auth->ensureAdminTable()
+ 4 SYSTEMPATH\CodeIgniter.php(951): App\Controllers\Auth->login()
+ 5 SYSTEMPATH\CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Auth))
+ 6 SYSTEMPATH\CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 7 SYSTEMPATH\Boot.php(417): CodeIgniter\CodeIgniter->run()
+ 8 SYSTEMPATH\Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 9 FCPATH\index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+DEBUG - 2026-05-07 13:40:51 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+ERROR - 2026-05-07 13:40:53 --> Error connecting to the database: mysqli_sql_exception: No connection could be made because the target machine actively refused it in C:\laragon\www\ci4-chatbot\system\Database\MySQLi\Connection.php:201
+Stack trace:
+#0 C:\laragon\www\ci4-chatbot\system\Database\MySQLi\Connection.php(201): mysqli->real_connect('127.0.0.1', 'root', Object(SensitiveParameterValue), 'db_chatbot', 3306, '', 0)
+#1 C:\laragon\www\ci4-chatbot\system\Database\BaseConnection.php(555): CodeIgniter\Database\MySQLi\Connection->connect(false)
+#2 C:\laragon\www\ci4-chatbot\system\Database\BaseConnection.php(795): CodeIgniter\Database\BaseConnection->initialize()
+#3 C:\laragon\www\ci4-chatbot\app\Controllers\Auth.php(13): CodeIgniter\Database\BaseConnection->query('\n            CR...')
+#4 C:\laragon\www\ci4-chatbot\app\Controllers\Auth.php(46): App\Controllers\Auth->ensureAdminTable()
+#5 C:\laragon\www\ci4-chatbot\system\CodeIgniter.php(951): App\Controllers\Auth->login()
+#6 C:\laragon\www\ci4-chatbot\system\CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Auth))
+#7 C:\laragon\www\ci4-chatbot\system\CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(NULL, Object(Config\Cache), false)
+#8 C:\laragon\www\ci4-chatbot\system\Boot.php(417): CodeIgniter\CodeIgniter->run()
+#9 C:\laragon\www\ci4-chatbot\system\Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+#10 C:\laragon\www\ci4-chatbot\public\index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+#11 {main}
+
+Next CodeIgniter\Database\Exceptions\DatabaseException: No connection could be made because the target machine actively refused it in C:\laragon\www\ci4-chatbot\system\Database\MySQLi\Connection.php:231
+Stack trace:
+#0 C:\laragon\www\ci4-chatbot\system\Database\BaseConnection.php(555): CodeIgniter\Database\MySQLi\Connection->connect(false)
+#1 C:\laragon\www\ci4-chatbot\system\Database\BaseConnection.php(795): CodeIgniter\Database\BaseConnection->initialize()
+#2 C:\laragon\www\ci4-chatbot\app\Controllers\Auth.php(13): CodeIgniter\Database\BaseConnection->query('\n            CR...')
+#3 C:\laragon\www\ci4-chatbot\app\Controllers\Auth.php(46): App\Controllers\Auth->ensureAdminTable()
+#4 C:\laragon\www\ci4-chatbot\system\CodeIgniter.php(951): App\Controllers\Auth->login()
+#5 C:\laragon\www\ci4-chatbot\system\CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Auth))
+#6 C:\laragon\www\ci4-chatbot\system\CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(NULL, Object(Config\Cache), false)
+#7 C:\laragon\www\ci4-chatbot\system\Boot.php(417): CodeIgniter\CodeIgniter->run()
+#8 C:\laragon\www\ci4-chatbot\system\Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+#9 C:\laragon\www\ci4-chatbot\public\index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+#10 {main}
+CRITICAL - 2026-05-07 13:40:53 --> CodeIgniter\Database\Exceptions\DatabaseException: Unable to connect to the database.
+Main connection [MySQLi]: No connection could be made because the target machine actively refused it
+[Method: GET, Route: admin/login]
+in SYSTEMPATH\Database\BaseConnection.php on line 606.
+ 1 SYSTEMPATH\Database\BaseConnection.php(795): CodeIgniter\Database\BaseConnection->initialize()
+ 2 APPPATH\Controllers\Auth.php(13): CodeIgniter\Database\BaseConnection->query('
+            CREATE TABLE IF NOT EXISTS admin_users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(120) NOT NULL,
+                email VARCHAR(150) NOT NULL UNIQUE,
+                password_hash VARCHAR(255) NOT NULL,
+                role VARCHAR(50) NOT NULL DEFAULT \'admin\',
+                created_at DATETIME NULL,
+                updated_at DATETIME NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+        ')
+ 3 APPPATH\Controllers\Auth.php(46): App\Controllers\Auth->ensureAdminTable()
+ 4 SYSTEMPATH\CodeIgniter.php(951): App\Controllers\Auth->login()
+ 5 SYSTEMPATH\CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Auth))
+ 6 SYSTEMPATH\CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 7 SYSTEMPATH\Boot.php(417): CodeIgniter\CodeIgniter->run()
+ 8 SYSTEMPATH\Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 9 FCPATH\index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+DEBUG - 2026-05-07 13:41:19 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-05-07 13:41:31 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-05-07 13:41:32 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-05-07 13:41:40 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-05-07 13:41:51 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-05-07 13:42:31 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-05-07 13:42:53 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.

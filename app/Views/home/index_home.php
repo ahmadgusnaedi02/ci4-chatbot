@@ -16,7 +16,7 @@
                     berprestasi, serta berakhlak baik.
                 </p>
                 <div class="hero-actions">
-                    <a href="#ppdb" class="btn btn-school-primary">Daftar Sekarang</a>
+                    <a href="#SPMB" class="btn btn-school-primary">Daftar Sekarang</a>
                     <a href="#profil" class="btn btn-school-secondary">Lihat Profil Sekolah</a>
                 </div>
             </div>
@@ -100,7 +100,7 @@
             <div class="row g-4">
                 <div class="col-md-4">
                     <article class="news-card">
-                        <h3>Pembukaan PPDB Tahun Ajaran Baru</h3>
+                        <h3>Pembukaan SPMB Tahun Ajaran Baru</h3>
                         <p>Informasi pendaftaran, jadwal seleksi, dan persyaratan calon peserta didik baru.</p>
                     </article>
                 </div>
@@ -120,12 +120,12 @@
         </div>
     </section>
 
-    <section class="section-pad" id="ppdb">
+    <section class="section-pad" id="SPMB">
         <div class="container">
-            <div class="ppdb-panel">
+            <div class="SPMB-panel">
                 <div class="row align-items-center g-4">
                     <div class="col-lg-8">
-                        <div class="section-kicker text-warning">PPDB</div>
+                        <div class="section-kicker text-warning">SPMB</div>
                         <h2 class="fw-bold mb-3">Pendaftaran siswa baru sudah bisa disiapkan.</h2>
                         <p class="mb-0">
                             Tanyakan jadwal, syarat, biaya, dan alur pendaftaran melalui chatbot di pojok kanan bawah.

@@ -107,7 +107,7 @@
         <section class="login-visual">
             <div class="position-relative">
                 <p class="text-warning fw-bold text-uppercase mb-3">Panel Admin Sekolah</p>
-                <h1>Kelola chat, PPDB, dan layanan sekolah dari satu dashboard.</h1>
+                <h1>Kelola chat, SPMB, dan layanan sekolah dari satu dashboard.</h1>
             </div>
         </section>
         <section class="login-panel">
@@ -127,11 +127,13 @@
                 <form action="<?= site_url('admin/login') ?>" method="post">
                     <div class="mb-3">
                         <label class="form-label" for="email">Email</label>
-                        <input class="form-control" id="email" name="email" type="email" value="<?= old('email', 'admin@sekolah.test') ?>" required autofocus>
+                        <input class="form-control" id="email" name="email" type="email"
+                            value="<?= old('email', 'admin@sekolah.test') ?>" required autofocus>
                     </div>
                     <div class="mb-4">
                         <label class="form-label" for="password">Password</label>
-                        <input class="form-control" id="password" name="password" type="password" placeholder="Masukkan password" required>
+                        <input class="form-control" id="password" name="password" type="password"
+                            placeholder="Masukkan password" required>
                     </div>
                     <button class="btn btn-primary btn-login w-100" type="submit">Masuk Dashboard</button>
                 </form>

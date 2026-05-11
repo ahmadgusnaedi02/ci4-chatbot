@@ -9,7 +9,7 @@
     <div class="chat-header">
         <div class="header-info">
             <img class="chatbot-logo" src="<?= base_url('assets/images/logo-yapas.png') ?>" alt="Logo Yapas">
-            <h2 class="logo-text">Chatbot PPDB</h2>
+            <h2 class="logo-text">Chatbot SPMB</h2>
         </div>
         <button class="material-symbols-rounded" id="close-chatbot" type="button">
             keyboard_arrow_down
@@ -22,7 +22,7 @@
             <img class="bot-avatar" src="<?= base_url('assets/images/logo-yapas.png') ?>" alt="Logo Yapas">
             <div class="message-text">
                 Halo!</br>
-                Selamat datang di layanan informasi PPDB. Silakan ajukan pertanyaan seputar pendaftaran peserta didik
+                Selamat datang di layanan informasi SPMB. Silakan ajukan pertanyaan seputar pendaftaran peserta didik
                 baru.
             </div>
         </div>

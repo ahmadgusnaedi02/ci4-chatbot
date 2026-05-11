@@ -6,9 +6,10 @@
     <div class="content-wrapper admin-content">
         <div class="admin-page-head">
             <div>
-                <p class="admin-eyebrow mb-2">PPDB Control Center</p>
+                <p class="admin-eyebrow mb-2">SPMB Control Center</p>
                 <h2 class="admin-page-title mb-2">Dashboard Admin</h2>
-                <p class="admin-page-subtitle mb-0">Pantau koneksi WhatsApp, antrian chat, dan riwayat percakapan calon peserta didik.</p>
+                <p class="admin-page-subtitle mb-0">Pantau koneksi WhatsApp, antrian chat, dan riwayat percakapan calon
+                    peserta didik.</p>
             </div>
             <a class="btn admin-primary-btn mt-3 mt-md-0" href="<?= site_url('/') ?>" target="_blank" rel="noopener">
                 <i class="mdi mdi-open-in-new me-1"></i> Lihat Landing Page
@@ -19,7 +20,8 @@
             <div class="admin-hero-copy">
                 <span class="admin-status-pill"><i class="mdi mdi-school-outline"></i> SMPS Plus Fajar Sentosa</span>
                 <h3>Selamat datang, <?= esc(session('admin_name') ?? 'Admin Sekolah') ?></h3>
-                <p>Gunakan panel ini untuk menjaga layanan informasi PPDB tetap cepat, jelas, dan siap membantu orang tua maupun calon siswa.</p>
+                <p>Gunakan panel ini untuk menjaga layanan informasi SPMB tetap cepat, jelas, dan siap membantu orang
+                    tua maupun calon siswa.</p>
             </div>
             <div class="admin-hero-actions">
                 <a class="btn admin-light-btn" href="<?= site_url('dashboard/scan-whatsapp') ?>">
@@ -66,7 +68,7 @@
                 <div class="card admin-stat-card">
                     <div class="card-body">
                         <div class="admin-stat-icon yellow"><i class="mdi mdi-robot-outline"></i></div>
-                        <p>Chatbot PPDB</p>
+                        <p>Chatbot SPMB</p>
                         <h3>Aktif</h3>
                         <span>Menjawab informasi pendaftaran.</span>
                     </div>
@@ -81,7 +83,7 @@
                         <div class="admin-card-head">
                             <div>
                                 <h4>Workflow Layanan</h4>
-                                <p>Urutan kerja harian untuk menjaga respon PPDB tetap rapi.</p>
+                                <p>Urutan kerja harian untuk menjaga respon SPMB tetap rapi.</p>
                             </div>
                         </div>
 
