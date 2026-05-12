@@ -15,12 +15,17 @@ class Auth extends BaseController
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(120) NOT NULL,
                 email VARCHAR(150) NOT NULL UNIQUE,
+                avatar_url VARCHAR(255) NULL,
                 password_hash VARCHAR(255) NOT NULL,
                 role VARCHAR(50) NOT NULL DEFAULT 'admin',
                 created_at DATETIME NULL,
                 updated_at DATETIME NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
         ");
+
+        if (!$db->fieldExists('avatar_url', 'admin_users')) {
+            $db->query('ALTER TABLE admin_users ADD avatar_url VARCHAR(255) NULL AFTER email');
+        }
 
         $count = (int) $db->table('admin_users')->countAllResults();
 
@@ -74,6 +79,7 @@ class Auth extends BaseController
             'admin_id' => (int) $admin['id'],
             'admin_name' => $admin['name'],
             'admin_email' => $admin['email'],
+            'admin_avatar' => $admin['avatar_url'] ?? null,
             'admin_role' => $admin['role'],
         ]);
 
@@ -87,6 +93,7 @@ class Auth extends BaseController
             'admin_id',
             'admin_name',
             'admin_email',
+            'admin_avatar',
             'admin_role',
         ]);
 

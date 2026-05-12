@@ -13,6 +13,8 @@ $routes->post('/admin/login', 'Auth::attemptLogin');
 $routes->get('/admin/logout', 'Auth::logout');
 $routes->post('/chatbot', 'Chatbot::chat');
 $routes->get('/dashboard', 'Dashboard::index');
+$routes->get('/dashboard/profile', 'Dashboard::profile');
+$routes->post('/dashboard/profile', 'Dashboard::updateProfile');
 $routes->get('/dashboard/scan-whatsapp', 'Dashboard::scanWhatsapp');
 $routes->get('/dashboard/support-chat', 'Dashboard::supportChat');
 $routes->get('/dashboard/history-chat', 'Dashboard::historyChat');

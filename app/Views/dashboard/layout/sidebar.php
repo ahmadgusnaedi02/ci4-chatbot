@@ -9,6 +9,12 @@
                     <span class="menu-title">Dashboard</span>
                 </a>
             </li>
+            <li class="nav-item <?= $currentPath === 'dashboard/profile' ? 'active' : '' ?>">
+                <a class="nav-link" href="<?= site_url('dashboard/profile') ?>">
+                    <i class="mdi mdi-account-cog menu-icon"></i>
+                    <span class="menu-title">Setting Profil</span>
+                </a>
+            </li>
             <li class="nav-item <?= $currentPath === 'dashboard/scan-whatsapp' ? 'active' : '' ?>">
                 <a class="nav-link" href="<?= site_url('dashboard/scan-whatsapp') ?>">
                     <i class="menu-icon mdi mdi-qrcode-scan"></i>

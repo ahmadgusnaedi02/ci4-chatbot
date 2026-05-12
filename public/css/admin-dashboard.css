@@ -381,6 +381,97 @@
     padding: 1.5rem;
 }
 
+.admin-navbar-avatar,
+.admin-dropdown-avatar {
+    object-fit: cover;
+}
+
+.admin-navbar-avatar {
+    height: 34px !important;
+    max-height: 34px;
+    max-width: 34px;
+    width: 34px !important;
+}
+
+.admin-dropdown-avatar {
+    height: 72px !important;
+    max-height: 72px;
+    max-width: 72px;
+    width: 72px !important;
+}
+
+.admin-profile-photo {
+    object-fit: contain;
+}
+
+.admin-profile-card {
+    text-align: center;
+}
+
+.admin-profile-photo-wrap {
+    display: grid;
+    justify-items: center;
+    margin-bottom: 1.25rem;
+}
+
+.admin-profile-photo {
+    background: #edf6fb;
+    border: 4px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 14px 30px rgba(13, 47, 79, 0.14);
+    height: 132px;
+    margin-bottom: 1rem;
+    width: 132px;
+}
+
+.admin-profile-upload {
+    cursor: pointer;
+}
+
+.admin-profile-name {
+    color: var(--admin-ink);
+    font-size: 1.2rem;
+    font-weight: 900;
+    margin-bottom: 0.3rem;
+}
+
+.admin-profile-email {
+    color: var(--admin-muted);
+    margin-bottom: 1.25rem;
+    overflow-wrap: anywhere;
+}
+
+.admin-profile-note {
+    align-items: flex-start;
+    background: #f8fbfd;
+    border: 1px solid var(--admin-line);
+    border-radius: 8px;
+    color: var(--admin-muted);
+    display: flex;
+    gap: 0.7rem;
+    line-height: 1.45;
+    padding: 0.95rem;
+    text-align: left;
+}
+
+.admin-profile-note i {
+    color: var(--admin-blue);
+    font-size: 1.35rem;
+    line-height: 1.2;
+}
+
+.admin-profile-divider {
+    border-top: 1px solid var(--admin-line);
+    margin: 0.55rem 0 1.35rem;
+}
+
+.admin-profile-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: flex-end;
+}
+
 .admin-card-head {
     margin-bottom: 1.2rem;
 }
@@ -748,6 +839,10 @@
     .admin-hero-actions {
         justify-content: flex-start;
         margin-top: 1.2rem;
+    }
+
+    .admin-profile-actions {
+        justify-content: flex-start;
     }
 }
 

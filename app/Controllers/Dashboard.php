@@ -7,6 +7,28 @@ use CodeIgniter\HTTP\RedirectResponse;
 
 class Dashboard extends BaseController
 {
+    private function ensureAdminProfileSchema(): void
+    {
+        $db = db_connect();
+
+        $db->query("
+            CREATE TABLE IF NOT EXISTS admin_users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(120) NOT NULL,
+                email VARCHAR(150) NOT NULL UNIQUE,
+                avatar_url VARCHAR(255) NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                role VARCHAR(50) NOT NULL DEFAULT 'admin',
+                created_at DATETIME NULL,
+                updated_at DATETIME NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+        ");
+
+        if (!$db->fieldExists('avatar_url', 'admin_users')) {
+            $db->query('ALTER TABLE admin_users ADD avatar_url VARCHAR(255) NULL AFTER email');
+        }
+    }
+
     public function index(): string
     {
         return view('dashboard/index_dashboard', $this->getDashboardSummary());
@@ -126,6 +148,142 @@ class Dashboard extends BaseController
     public function historyChat(): string
     {
         return view('dashboard/history_chat');
+    }
+
+    public function profile(): string|RedirectResponse
+    {
+        $this->ensureAdminProfileSchema();
+
+        $admin = $this->currentAdmin();
+
+        if (!$admin) {
+            return redirect()->to(site_url('admin/logout'));
+        }
+
+        return view('dashboard/profile', [
+            'admin' => $admin,
+        ]);
+    }
+
+    public function updateProfile(): RedirectResponse
+    {
+        $this->ensureAdminProfileSchema();
+
+        $admin = $this->currentAdmin();
+
+        if (!$admin) {
+            return redirect()->to(site_url('admin/logout'));
+        }
+
+        $name = trim((string) $this->request->getPost('name'));
+        $email = trim((string) $this->request->getPost('email'));
+        $currentPassword = (string) $this->request->getPost('current_password');
+        $newPassword = (string) $this->request->getPost('new_password');
+        $confirmPassword = (string) $this->request->getPost('confirm_password');
+
+        if ($name === '' || $email === '') {
+            return redirect()->back()->withInput()->with('error', 'Nama dan email wajib diisi.');
+        }
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return redirect()->back()->withInput()->with('error', 'Format email tidak valid.');
+        }
+
+        $db = db_connect();
+        $duplicateEmail = $db->table('admin_users')
+            ->where('email', $email)
+            ->where('id !=', (int) $admin['id'])
+            ->countAllResults();
+
+        if ($duplicateEmail > 0) {
+            return redirect()->back()->withInput()->with('error', 'Email sudah digunakan admin lain.');
+        }
+
+        $payload = [
+            'name' => $name,
+            'email' => $email,
+            'updated_at' => date('Y-m-d H:i:s'),
+        ];
+
+        if ($newPassword !== '' || $confirmPassword !== '' || $currentPassword !== '') {
+            if (!password_verify($currentPassword, $admin['password_hash'])) {
+                return redirect()->back()->withInput()->with('error', 'Password saat ini tidak sesuai.');
+            }
+
+            if (strlen($newPassword) < 6) {
+                return redirect()->back()->withInput()->with('error', 'Password baru minimal 6 karakter.');
+            }
+
+            if ($newPassword !== $confirmPassword) {
+                return redirect()->back()->withInput()->with('error', 'Konfirmasi password baru belum sama.');
+            }
+
+            $payload['password_hash'] = password_hash($newPassword, PASSWORD_DEFAULT);
+        }
+
+        $avatar = $this->request->getFile('avatar');
+
+        if ($avatar && $avatar->isValid() && !$avatar->hasMoved()) {
+            $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+            $extension = strtolower($avatar->getClientExtension());
+
+            if (!in_array($extension, $allowedExtensions, true)) {
+                return redirect()->back()->withInput()->with('error', 'Foto profil harus JPG, PNG, atau WEBP.');
+            }
+
+            if ($avatar->getSizeByUnit('mb') > 2) {
+                return redirect()->back()->withInput()->with('error', 'Ukuran foto profil maksimal 2 MB.');
+            }
+
+            $uploadPath = FCPATH . 'uploads' . DIRECTORY_SEPARATOR . 'admin-profiles';
+
+            if (!is_dir($uploadPath)) {
+                mkdir($uploadPath, 0775, true);
+            }
+
+            $newName = $avatar->getRandomName();
+            $avatar->move($uploadPath, $newName);
+            $avatarPath = $uploadPath . DIRECTORY_SEPARATOR . $newName;
+
+            service('image')
+                ->withFile($avatarPath)
+                ->resize(512, 512, true, 'auto')
+                ->save($avatarPath, 85);
+
+            $payload['avatar_url'] = 'uploads/admin-profiles/' . $newName;
+
+            if (!empty($admin['avatar_url'])) {
+                $oldAvatar = FCPATH . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $admin['avatar_url']);
+
+                if (is_file($oldAvatar) && str_starts_with(realpath($oldAvatar), realpath($uploadPath))) {
+                    @unlink($oldAvatar);
+                }
+            }
+        }
+
+        $db->table('admin_users')->where('id', (int) $admin['id'])->update($payload);
+
+        session()->set([
+            'admin_name' => $payload['name'],
+            'admin_email' => $payload['email'],
+            'admin_avatar' => $payload['avatar_url'] ?? ($admin['avatar_url'] ?? null),
+        ]);
+
+        return redirect()->to(site_url('dashboard/profile'))->with('success', 'Profil admin berhasil diperbarui.');
+    }
+
+    private function currentAdmin(): ?array
+    {
+        $adminId = (int) session('admin_id');
+
+        if ($adminId < 1) {
+            return null;
+        }
+
+        return db_connect()->table('admin_users')
+            ->where('id', $adminId)
+            ->get()
+            ->getRowArray() ?: null;
     }
 
     public function knowledgeBase(): string
