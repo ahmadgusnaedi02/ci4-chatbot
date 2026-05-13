@@ -137,10 +137,6 @@
                     </div>
                     <button class="btn btn-primary btn-login w-100" type="submit">Masuk Dashboard</button>
                 </form>
-
-                <div class="alert alert-info mt-4 mb-0">
-                    Default awal: <strong>admin@sekolah.test</strong> / <strong>admin123</strong>
-                </div>
             </div>
         </section>
     </main>
