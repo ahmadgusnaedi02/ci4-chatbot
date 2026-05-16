@@ -151,7 +151,7 @@
                 </div>
             </div>
 
-            <div class="col-12" id="synonyms">
+            <div class="col-lg-6 mb-4" id="synonyms">
                 <div class="card admin-card">
                     <div class="card-body">
                         <div class="admin-card-head">

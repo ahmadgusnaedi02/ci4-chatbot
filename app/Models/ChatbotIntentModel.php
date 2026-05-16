@@ -101,9 +101,23 @@ class ChatbotIntentModel extends Model
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
         ");
 
-        $this->seedNlpDefaults();
-        $this->seedDefaultIntents();
-        $this->seedPpdbTrainingPhrases();
+        $hasIntents = (int) $this->db->table('chatbot_intents')->countAllResults() > 0;
+        $hasStopWords = (int) $this->db->table('chatbot_stopwords')->countAllResults() > 0;
+        $hasSuffixes = (int) $this->db->table('chatbot_suffixes')->countAllResults() > 0;
+        $hasSynonyms = (int) $this->db->table('chatbot_synonyms')->countAllResults() > 0;
+
+        if (!$hasStopWords && !$hasSynonyms) {
+            $this->seedNlpDefaults();
+        }
+
+        if (!$hasSuffixes) {
+            $this->insertUniqueRows('chatbot_suffixes', 'suffix', ['nya', 'lah', 'kah', 'pun'], date('Y-m-d H:i:s'));
+        }
+
+        if (!$hasIntents) {
+            $this->seedDefaultIntents();
+            $this->seedPpdbTrainingPhrases();
+        }
 
         $this->schemaReady = true;
         $this->ensuringSchema = false;
