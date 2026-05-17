@@ -94,7 +94,7 @@
                                                 <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#keyword-edit-<?= esc((string) $item['id']) ?>">
                                                     <i class="mdi mdi-pencil me-2"></i>Edit
                                                 </button>
-                                                <form action="<?= site_url('dashboard/keywords/' . $item['id'] . '/delete') ?>" method="post" onsubmit="return confirm('Hapus keyword ini?')">
+                                                <form action="<?= site_url('dashboard/keywords/' . $item['id'] . '/delete') ?>" method="post" data-confirm="Hapus keyword ini?">
                                                     <?= csrf_field() ?>
                                                     <button class="dropdown-item text-danger" type="submit">
                                                         <i class="mdi mdi-delete me-2"></i>Hapus

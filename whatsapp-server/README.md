@@ -44,11 +44,11 @@ set CHATBOT_URL=http://domain-kamu.test/chatbot
 npm start
 ```
 
-Alur handoff CS:
+Alur handoff admin sekolah:
 
 1. Chatbot menjawab pesan masuk.
-2. Jika chatbot tidak yakin, chatbot menawarkan: "Apakah Anda ingin terhubung dengan CS?"
-3. Jika user membalas "ya", "cs", "admin", atau "terhubung", pesan masuk ke antrian admin.
+2. Jika chatbot tidak yakin, chatbot menawarkan: "Apakah Anda ingin terhubung dengan admin sekolah?"
+3. Jika user membalas "ya", "admin sekolah", "admin", atau "terhubung", pesan masuk ke antrian admin.
 4. Admin membalas lewat halaman:
 
 ```text

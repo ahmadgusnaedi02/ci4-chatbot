@@ -118,7 +118,7 @@
                                                 </button>
                                             </form>
                                             <form action="<?= site_url('dashboard/knowledge-base/' . $item['id'] . '/delete') ?>" method="post"
-                                                onsubmit="return confirm('Hapus intent dataset ini?')">
+                                                data-confirm="Hapus intent dataset ini?">
                                                 <?= csrf_field() ?>
                                                 <button class="btn btn-outline-danger btn-sm" type="submit">
                                                     <i class="mdi mdi-delete"></i>

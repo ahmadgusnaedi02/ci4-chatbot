@@ -19,6 +19,45 @@
             <div class="alert alert-danger"><?= esc(session('error')) ?></div>
         <?php endif; ?>
 
+        <?php
+            $trainingSummary = $trainingSummary ?? [];
+            $totalTraining = array_sum(array_map(static fn (array $item): int => (int) ($item['training_count'] ?? 0), $trainingSummary));
+        ?>
+        <div class="card admin-card training-summary-chart-card mb-4">
+            <div class="card-body">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+                    <div>
+                        <h4 class="card-title card-title-dash mb-1">Ringkasan Data Training</h4>
+                        <p class="card-subtitle card-subtitle-dash mb-0"><?= esc((string) count($trainingSummary)) ?> intent terdaftar</p>
+                    </div>
+                    <div class="training-summary-total">
+                        <span>Total</span>
+                        <strong><?= esc((string) $totalTraining) ?></strong>
+                    </div>
+                </div>
+
+                <?php if (empty($trainingSummary)): ?>
+                    <div class="text-muted text-center py-4">Belum ada intent untuk diringkas.</div>
+                <?php else: ?>
+                    <div class="training-chart">
+                        <?php foreach ($trainingSummary as $summary): ?>
+                            <?php
+                                $count = (int) ($summary['training_count'] ?? 0);
+                                $percent = $totalTraining > 0 ? max(3, (int) round(($count / $totalTraining) * 100)) : 3;
+                            ?>
+                            <div class="training-chart-row">
+                                <span class="training-chart-label"><?= esc($summary['name']) ?></span>
+                                <div class="training-chart-track">
+                                    <div class="training-chart-bar" style="width: <?= esc((string) $percent) ?>%"></div>
+                                </div>
+                                <strong><?= esc((string) $count) ?></strong>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+
         <div class="card admin-card mb-4">
             <div class="card-body">
                 <form class="row g-3 align-items-end" action="<?= site_url('dashboard/training-phrases') ?>" method="post">
@@ -34,7 +73,7 @@
                     </div>
                     <div class="col-lg-6">
                         <label class="form-label" for="phrase">Training Phrase</label>
-                        <input class="form-control" id="phrase" name="phrase" type="text" placeholder="contoh: apa saja syarat ppdb" required>
+                        <input class="form-control" id="phrase" name="phrase" type="text" placeholder="contoh: apa saja syarat spmb" required>
                     </div>
                     <div class="col-lg-2">
                         <label class="form-label" for="source">Source</label>
@@ -102,7 +141,7 @@
                                                 <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#phrase-edit-<?= esc((string) $item['id']) ?>">
                                                     <i class="mdi mdi-pencil me-2"></i>Edit
                                                 </button>
-                                                <form action="<?= site_url('dashboard/training-phrases/' . $item['id'] . '/delete') ?>" method="post" onsubmit="return confirm('Hapus training phrase ini?')">
+                                                <form action="<?= site_url('dashboard/training-phrases/' . $item['id'] . '/delete') ?>" method="post" data-confirm="Hapus training phrase ini?">
                                                     <?= csrf_field() ?>
                                                     <button class="dropdown-item text-danger" type="submit">
                                                         <i class="mdi mdi-delete me-2"></i>Hapus
@@ -164,5 +203,77 @@
             </div>
         </div>
     </div>
+
+    <style>
+        .training-summary-chart-card .card-body {
+            padding-bottom: 18px;
+        }
+
+        .training-summary-total {
+            align-items: flex-end;
+            display: flex;
+            gap: 10px;
+        }
+
+        .training-summary-total span {
+            color: #64748b;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+
+        .training-summary-total strong {
+            display: block;
+            font-size: 34px;
+            line-height: 1;
+        }
+
+        .training-chart {
+            display: grid;
+            gap: 10px;
+            max-height: 240px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .training-chart-row {
+            align-items: center;
+            display: grid;
+            gap: 12px;
+            grid-template-columns: minmax(120px, 180px) minmax(0, 1fr) 42px;
+        }
+
+        .training-chart-label {
+            color: #334155;
+            font-size: 13px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .training-chart-track {
+            background: #edf6fb;
+            border-radius: 999px;
+            height: 10px;
+            overflow: hidden;
+        }
+
+        .training-chart-bar {
+            background: var(--admin-blue);
+            border-radius: inherit;
+            height: 100%;
+        }
+
+        .training-chart-row strong {
+            color: #334155;
+            font-size: 13px;
+            text-align: right;
+        }
+
+        @media (max-width: 767px) {
+            .training-chart-row {
+                grid-template-columns: minmax(86px, 120px) minmax(0, 1fr) 36px;
+            }
+        }
+    </style>
 
     <?= $this->include('dashboard/layout/footer') ?>

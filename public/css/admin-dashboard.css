@@ -36,6 +36,24 @@
     padding-right: 1.5rem;
 }
 
+.admin-dashboard .navbar.headerLight {
+    background: #fff;
+    box-shadow: 0 8px 28px rgba(13, 47, 79, 0.08);
+}
+
+.admin-dashboard .navbar.headerLight .navbar-brand-wrapper,
+.admin-dashboard .navbar.headerLight .navbar-menu-wrapper {
+    background: #fff;
+    height: 97px;
+}
+
+.admin-dashboard.with-welcome-text .navbar.headerLight .welcome-text,
+.admin-dashboard.with-welcome-text .navbar.headerLight .welcome-sub-text,
+.admin-dashboard.with-welcome-text .navbar.headerLight .navbar-welcome h5,
+.admin-dashboard.with-welcome-text .navbar.headerLight .navbar-welcome p {
+    display: block !important;
+}
+
 .admin-dashboard .admin-brand {
     align-items: center;
     display: flex;
@@ -239,6 +257,21 @@
     border-radius: 8px;
     color: #fff;
     font-weight: 800;
+}
+
+.admin-danger-btn {
+    background: var(--admin-red);
+    border-color: var(--admin-red);
+    border-radius: 8px;
+    color: #fff;
+    font-weight: 800;
+}
+
+.admin-danger-btn:hover,
+.admin-danger-btn:focus {
+    background: #c83c3c;
+    border-color: #c83c3c;
+    color: #fff;
 }
 
 .admin-light-btn {
@@ -730,6 +763,82 @@
 .admin-modal .modal-title {
     color: var(--admin-ink);
     font-weight: 900;
+}
+
+.admin-confirm-backdrop {
+    align-items: center;
+    background: rgba(13, 47, 79, 0.46);
+    bottom: 0;
+    display: none;
+    justify-content: center;
+    left: 0;
+    padding: 24px;
+    position: fixed;
+    right: 0;
+    top: 0;
+    z-index: 2000;
+}
+
+.admin-confirm-backdrop.show {
+    display: flex;
+}
+
+.admin-confirm-modal {
+    background: #fff;
+    border: 1px solid var(--admin-line);
+    border-radius: 8px;
+    box-shadow: 0 24px 70px rgba(13, 47, 79, 0.24);
+    max-width: 430px;
+    padding: 24px;
+    transform: translateY(8px) scale(0.98);
+    transition: transform 0.18s ease;
+    width: min(430px, 100%);
+}
+
+.admin-confirm-backdrop.show .admin-confirm-modal {
+    transform: translateY(0) scale(1);
+}
+
+.admin-confirm-icon {
+    align-items: center;
+    background: rgba(223, 75, 75, 0.12);
+    border-radius: 8px;
+    color: var(--admin-red);
+    display: inline-flex;
+    font-size: 30px;
+    height: 54px;
+    justify-content: center;
+    margin-bottom: 16px;
+    width: 54px;
+}
+
+.admin-confirm-copy h5 {
+    color: var(--admin-ink);
+    font-weight: 900;
+    margin-bottom: 8px;
+}
+
+.admin-confirm-copy p {
+    color: var(--admin-muted);
+    line-height: 1.55;
+    margin-bottom: 0;
+}
+
+.admin-confirm-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 22px;
+}
+
+@media (max-width: 575px) {
+    .admin-confirm-actions {
+        flex-direction: column-reverse;
+    }
+
+    .admin-confirm-actions .btn {
+        width: 100%;
+    }
 }
 
 .admin-phrases-table th:nth-child(1),

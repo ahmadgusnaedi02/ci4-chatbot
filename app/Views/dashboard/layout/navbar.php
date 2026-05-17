@@ -9,13 +9,13 @@
                         aria-label="Toggle sidebar">
                         <img src="<?= base_url('assets/images/logo-yapas.png') ?>" alt="Logo Yapas" />
                     </button>
-                    <a class="admin-brand-text" href="<?= site_url('dashboard') ?>">Admin PPDB</a>
+                    <a class="admin-brand-text" href="<?= site_url('dashboard') ?>">Admin SPMB</a>
                 </div>
             </div>
             <div class="navbar-menu-wrapper d-flex align-items-top">
                 <div class="navbar-welcome d-none d-md-block">
                     <h5 class="mb-1">Dashboard Sekolah</h5>
-                    <p class="mb-0">Kelola chatbot, WhatsApp, dan percakapan PPDB.</p>
+                    <p class="mb-0">Kelola chatbot, WhatsApp, dan percakapan SPMB.</p>
                 </div>
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item dropdown d-none d-lg-block user-dropdown">

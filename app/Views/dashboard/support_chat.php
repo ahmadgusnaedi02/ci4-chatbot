@@ -9,7 +9,7 @@
                 <div class="d-sm-flex align-items-center justify-content-between border-bottom mb-4 pb-3">
                     <div>
                         <h3 class="fw-bold mb-1">Answer Chat</h3>
-                        <p class="text-muted mb-0">Balas pesan WhatsApp dan Website yang sudah minta terhubung dengan CS.</p>
+                        <p class="text-muted mb-0">Balas pesan WhatsApp dan Website yang sudah minta terhubung dengan admin sekolah.</p>
                     </div>
                     <button class="btn btn-outline-secondary btn-lg mt-3 mt-sm-0" type="button" id="refreshTicketsBtn">
                         <i class="mdi mdi-refresh me-1"></i> Refresh
@@ -21,11 +21,11 @@
                         <div class="card card-rounded">
                             <div class="card-body">
                                 <div class="d-flex align-items-center justify-content-between mb-3">
-                                    <h4 class="card-title card-title-dash mb-0">Antrian CS</h4>
-                                    <span class="badge badge-opacity-warning" id="ticketCount">0</span>
+                                    <h4 class="card-title card-title-dash mb-0">Antrian Admin Sekolah</h4>
+                                    <span class="badge chat-badge-yellow" id="ticketCount">0</span>
                                 </div>
                                 <div class="support-ticket-list" id="ticketList">
-                                    <div class="text-muted text-center py-5">Belum ada chat yang menunggu CS.</div>
+                                    <div class="text-muted text-center py-5">Belum ada chat yang menunggu admin sekolah.</div>
                                 </div>
                             </div>
                         </div>
@@ -43,12 +43,12 @@
                                         <button class="btn btn-outline-danger btn-sm" type="button" id="endChatBtn" disabled>
                                             <i class="mdi mdi-close-circle-outline me-1"></i> Akhiri chat
                                         </button>
-                                        <span class="badge badge-opacity-secondary" id="chatStatus">-</span>
+                                        <span class="badge chat-badge-muted" id="chatStatus">-</span>
                                     </div>
                                 </div>
 
                                 <div class="support-chat-window" id="chatMessages">
-                                    <div class="text-muted text-center py-5">Pilih salah satu antrian CS.</div>
+                                    <div class="text-muted text-center py-5">Pilih salah satu antrian admin sekolah.</div>
                                 </div>
 
                                 <form class="support-reply-form mt-3" id="replyForm">
@@ -62,7 +62,7 @@
                                 </form>
 
                                 <div class="alert alert-info mt-3 mb-0" id="supportMessage">
-                                    Menunggu data antrian CS.
+                                    Menunggu data antrian admin sekolah.
                                 </div>
                             </div>
                         </div>
@@ -90,7 +90,7 @@
         .support-ticket-item:hover,
         .support-ticket-item.active {
             background: #f8fafc;
-            border-color: #90cdf4;
+            border-color: rgba(16, 79, 134, 0.46);
         }
 
         .support-chat-window {
@@ -116,14 +116,36 @@
         }
 
         .support-bubble.bot {
-            background: #e0f2fe;
-            border: 1px solid #bae6fd;
+            background: rgba(16, 79, 134, 0.08);
+            border: 1px solid rgba(16, 79, 134, 0.18);
         }
 
         .support-bubble.admin {
-            background: #dcfce7;
-            border: 1px solid #bbf7d0;
+            background: rgba(245, 183, 25, 0.12);
+            border: 1px solid rgba(245, 183, 25, 0.28);
             margin-left: auto;
+        }
+
+        .chat-badge-yellow,
+        .chat-badge-red,
+        .chat-badge-muted {
+            border-radius: 999px;
+            font-weight: 800;
+        }
+
+        .chat-badge-yellow {
+            background: rgba(245, 183, 25, 0.2);
+            color: #8a5c00;
+        }
+
+        .chat-badge-red {
+            background: rgba(223, 75, 75, 0.14);
+            color: var(--admin-red);
+        }
+
+        .chat-badge-muted {
+            background: #edf2f7;
+            color: var(--admin-muted);
         }
 
         .support-bubble-meta {
@@ -158,16 +180,31 @@
             supportMessage.textContent = text;
         }
 
+        function parseAppTime(value) {
+            if (!value) {
+                return null;
+            }
+
+            const text = String(value);
+
+            if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(text)) {
+                return new Date(`${text.replace(' ', 'T')}+07:00`);
+            }
+
+            return new Date(text);
+        }
+
         function formatTime(value) {
             if (!value) {
                 return '-';
             }
 
-            return new Date(value).toLocaleString('id-ID', {
+            return parseAppTime(value).toLocaleString('id-ID', {
                 day: '2-digit',
                 month: 'short',
                 hour: '2-digit',
                 minute: '2-digit',
+                timeZone: 'Asia/Jakarta',
             });
         }
 
@@ -195,21 +232,21 @@
             ticketCount.textContent = tickets.filter((ticket) => ticket.status === 'waiting_admin').length;
 
             if (!tickets.length) {
-                ticketList.innerHTML = '<div class="text-muted text-center py-5">Belum ada chat yang menunggu CS.</div>';
+                ticketList.innerHTML = '<div class="text-muted text-center py-5">Belum ada chat yang menunggu admin sekolah.</div>';
                 return;
             }
 
             ticketList.innerHTML = tickets.map((ticket) => {
                 const lastMessage = ticket.messages[ticket.messages.length - 1];
                 const active = ticket.id === selectedTicketId ? 'active' : '';
-                const badge = ticket.status === 'waiting_admin' ? 'warning' : 'success';
+                const badge = ticket.status === 'waiting_admin' ? 'chat-badge-yellow' : 'chat-badge-red';
                 const statusText = ticket.status === 'waiting_admin' ? 'Menunggu' : 'Terjawab';
 
                 return `
                     <div class="support-ticket-item ${active}" data-ticket-id="${ticket.id}">
                         <div class="d-flex align-items-center justify-content-between mb-2">
                             <strong>${escapeHtml(ticket.from)}</strong>
-                            <span class="badge badge-opacity-${badge}">${statusText}</span>
+                            <span class="badge ${badge}">${statusText}</span>
                         </div>
                         <p class="text-muted mb-2">${lastMessage ? escapeHtml(lastMessage.body) : '-'}</p>
                         <small class="text-muted">${formatTime(ticket.updatedAt)}</small>
@@ -225,8 +262,8 @@
                 chatTitle.textContent = 'Pilih chat';
                 chatSubtitle.textContent = 'Detail percakapan akan tampil di sini.';
                 chatStatus.textContent = '-';
-                chatStatus.className = 'badge badge-opacity-secondary';
-                chatMessages.innerHTML = '<div class="text-muted text-center py-5">Pilih salah satu antrian CS.</div>';
+                chatStatus.className = 'badge chat-badge-muted';
+                chatMessages.innerHTML = '<div class="text-muted text-center py-5">Pilih salah satu antrian admin sekolah.</div>';
                 replyMessage.disabled = true;
                 sendReplyBtn.disabled = true;
                 endChatBtn.disabled = true;
@@ -237,8 +274,8 @@
 
             chatTitle.textContent = ticket.from;
             chatSubtitle.textContent = `Dibuat ${formatTime(ticket.createdAt)}`;
-            chatStatus.textContent = isActive ? 'Aktif CS' : 'Selesai';
-            chatStatus.className = `badge badge-opacity-${isActive ? 'warning' : 'success'}`;
+            chatStatus.textContent = isActive ? 'Aktif Admin Sekolah' : 'Selesai';
+            chatStatus.className = `badge ${isActive ? 'chat-badge-yellow' : 'chat-badge-red'}`;
             replyMessage.disabled = !isActive;
             sendReplyBtn.disabled = !isActive;
             endChatBtn.disabled = !isActive;
@@ -258,7 +295,7 @@
                 const data = await response.json();
 
                 if (!response.ok) {
-                    throw new Error(data.message || 'Gagal memuat antrian CS.');
+                    throw new Error(data.message || 'Gagal memuat antrian admin sekolah.');
                 }
 
                 tickets = data.tickets || [];
@@ -270,7 +307,7 @@
                 renderTickets();
                 renderSelectedTicket();
                 if (!quiet) {
-                    setSupportMessage('Data antrian CS berhasil dimuat.', 'success');
+                    setSupportMessage('Data antrian admin sekolah berhasil dimuat.', 'success');
                 }
             } catch (error) {
                 setSupportMessage(error.message, 'danger');
@@ -332,7 +369,7 @@
 
             endChatBtn.disabled = true;
             sendReplyBtn.disabled = true;
-            setSupportMessage('Mengakhiri chat CS...', 'info');
+            setSupportMessage('Mengakhiri chat admin sekolah...', 'info');
 
             try {
                 const response = await fetch(supportActionUrl(ticket, 'end'), {
@@ -347,7 +384,7 @@
                 }
 
                 await loadTickets();
-                setSupportMessage('Chat CS diakhiri. Pesan berikutnya akan dijawab bot lagi.', 'success');
+                setSupportMessage('Chat admin sekolah diakhiri. Pesan berikutnya akan dijawab bot lagi.', 'success');
             } catch (error) {
                 setSupportMessage(error.message, 'danger');
                 endChatBtn.disabled = false;

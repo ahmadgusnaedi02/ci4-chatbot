@@ -16,6 +16,31 @@
                     </button>
                 </div>
 
+                <?php if (session('success')): ?>
+                    <div class="alert alert-success"><?= esc(session('success')) ?></div>
+                <?php endif; ?>
+                <?php if (session('error')): ?>
+                    <div class="alert alert-danger"><?= esc(session('error')) ?></div>
+                <?php endif; ?>
+
+                <div class="history-stats mb-4" id="historyStats">
+                    <div class="history-stat-card history-stat-bot">
+                        <i class="mdi mdi-robot-outline"></i>
+                        <span>Dijawab Bot</span>
+                        <strong>0</strong>
+                    </div>
+                    <div class="history-stat-card history-stat-waiting">
+                        <i class="mdi mdi-account-clock-outline"></i>
+                        <span>Menunggu Admin</span>
+                        <strong>0</strong>
+                    </div>
+                    <div class="history-stat-card history-stat-admin">
+                        <i class="mdi mdi-account-check-outline"></i>
+                        <span>Ditangani Admin</span>
+                        <strong>0</strong>
+                    </div>
+                </div>
+
                 <div class="row">
                     <div class="col-lg-4 grid-margin stretch-card">
                         <div class="card card-rounded">
@@ -28,8 +53,8 @@
                                         <select class="form-control" id="statusFilter">
                                             <option value="">Semua</option>
                                             <option value="bot">Bot</option>
-                                            <option value="waiting_cs">Waiting CS</option>
-                                            <option value="handled_by_cs">Handled CS</option>
+                                            <option value="waiting_cs">Menunggu Admin Sekolah</option>
+                                            <option value="handled_by_cs">Ditangani Admin Sekolah</option>
                                             <option value="closed">Closed</option>
                                         </select>
                                     </div>
@@ -37,7 +62,7 @@
 
                                 <div class="d-flex align-items-center justify-content-between mb-3">
                                     <h4 class="card-title card-title-dash mb-0">Daftar Chat</h4>
-                                    <span class="badge badge-opacity-primary" id="chatCount">0</span>
+                                    <span class="badge chat-badge-blue" id="chatCount">0</span>
                                 </div>
 
                                 <div class="history-list" id="chatList">
@@ -50,12 +75,20 @@
                     <div class="col-lg-8 grid-margin stretch-card">
                         <div class="card card-rounded">
                             <div class="card-body">
-                                <div class="d-flex align-items-center justify-content-between border-bottom pb-3 mb-3">
+                                <div class="d-flex align-items-center justify-content-between border-bottom pb-3 mb-3 gap-3">
                                     <div>
                                         <h4 class="card-title card-title-dash mb-1" id="historyTitle">Pilih chat</h4>
                                         <p class="card-subtitle card-subtitle-dash mb-0" id="historySubtitle">Detail pesan akan tampil di sini.</p>
                                     </div>
-                                    <span class="badge badge-opacity-secondary" id="historyStatus">-</span>
+                                    <div class="history-detail-actions">
+                                        <form id="deleteHistoryForm" action="#" method="post" data-confirm="Hapus riwayat chat ini beserta semua pesannya?">
+                                            <?= csrf_field() ?>
+                                            <button class="btn btn-outline-danger btn-sm" id="deleteHistoryBtn" type="submit" disabled>
+                                                <i class="mdi mdi-delete-outline me-1"></i> Hapus
+                                            </button>
+                                        </form>
+                                        <span class="badge chat-badge-muted" id="historyStatus">-</span>
+                                    </div>
                                 </div>
 
                                 <div class="history-summary mb-3" id="historySummary">
@@ -68,7 +101,7 @@
                                         <strong>0</strong>
                                     </div>
                                     <div>
-                                        <span class="text-muted d-block">Butuh CS</span>
+                                        <span class="text-muted d-block">Butuh Admin Sekolah</span>
                                         <strong>0</strong>
                                     </div>
                                 </div>
@@ -94,6 +127,88 @@
             overflow-y: auto;
         }
 
+        .history-stats {
+            display: grid;
+            gap: 14px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .history-stat-card {
+            background: #fff;
+            border: 1px solid #dbe7ef;
+            border-radius: 8px;
+            overflow: hidden;
+            padding: 16px 18px;
+            position: relative;
+        }
+
+        .history-stat-card::before {
+            bottom: 0;
+            content: "";
+            left: 0;
+            position: absolute;
+            top: 0;
+            width: 5px;
+        }
+
+        .history-stat-card i {
+            align-items: center;
+            border-radius: 8px;
+            display: inline-flex;
+            font-size: 23px;
+            height: 42px;
+            justify-content: center;
+            margin-bottom: 12px;
+            width: 42px;
+        }
+
+        .history-stat-card span {
+            color: var(--admin-muted);
+            display: block;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        .history-stat-card strong {
+            color: var(--admin-ink);
+            display: block;
+            font-size: 30px;
+            line-height: 1;
+        }
+
+        .history-stat-bot {
+            background: #fff;
+            border-color: rgba(16, 79, 134, 0.18);
+        }
+
+        .history-stat-bot::before,
+        .history-stat-bot i {
+            background: var(--admin-blue);
+            color: #fff;
+        }
+
+        .history-stat-waiting {
+            background: #fff;
+            border-color: rgba(245, 183, 25, 0.34);
+        }
+
+        .history-stat-waiting::before,
+        .history-stat-waiting i {
+            background: var(--admin-yellow);
+            color: var(--admin-ink);
+        }
+
+        .history-stat-admin {
+            background: #fff;
+            border-color: rgba(223, 75, 75, 0.3);
+        }
+
+        .history-stat-admin::before,
+        .history-stat-admin i {
+            background: var(--admin-red);
+            color: #fff;
+        }
+
         .history-item {
             border: 1px solid #edf2f7;
             border-radius: 8px;
@@ -106,7 +221,7 @@
         .history-item:hover,
         .history-item.active {
             background: #f8fafc;
-            border-color: #90cdf4;
+            border-color: rgba(16, 79, 134, 0.46);
         }
 
         .history-last-message {
@@ -152,13 +267,13 @@
         }
 
         .history-bubble.bot {
-            background: #e0f2fe;
-            border: 1px solid #bae6fd;
+            background: rgba(16, 79, 134, 0.08);
+            border: 1px solid rgba(16, 79, 134, 0.18);
         }
 
         .history-bubble.admin {
-            background: #dcfce7;
-            border: 1px solid #bbf7d0;
+            background: rgba(245, 183, 25, 0.12);
+            border: 1px solid rgba(245, 183, 25, 0.28);
             margin-left: auto;
         }
 
@@ -175,13 +290,72 @@
             margin-top: 8px;
         }
 
+        .history-badges .badge-chatbot {
+            background: rgba(16, 79, 134, 0.12);
+            color: var(--admin-blue);
+        }
+
+        .history-badges .badge-admin {
+            background: rgba(245, 183, 25, 0.2);
+            color: #8a5c00;
+        }
+
+        .history-badges .badge-training {
+            background: rgba(223, 75, 75, 0.14);
+            color: var(--admin-red);
+        }
+
+        .chat-badge-blue,
+        .chat-badge-yellow,
+        .chat-badge-red,
+        .chat-badge-muted {
+            border-radius: 999px;
+            font-weight: 800;
+        }
+
+        .chat-badge-blue {
+            background: rgba(16, 79, 134, 0.12);
+            color: var(--admin-blue);
+        }
+
+        .chat-badge-yellow {
+            background: rgba(245, 183, 25, 0.2);
+            color: #8a5c00;
+        }
+
+        .chat-badge-red {
+            background: rgba(223, 75, 75, 0.14);
+            color: var(--admin-red);
+        }
+
+        .chat-badge-muted {
+            background: #edf2f7;
+            color: var(--admin-muted);
+        }
+
+        .history-detail-actions {
+            align-items: center;
+            display: flex;
+            flex-shrink: 0;
+            gap: 10px;
+        }
+
         @media (max-width: 767px) {
             .history-summary {
                 grid-template-columns: 1fr;
             }
 
+            .history-stats {
+                grid-template-columns: 1fr;
+            }
+
             .history-bubble {
                 max-width: 100%;
+            }
+
+            .history-detail-actions {
+                align-items: flex-end;
+                flex-direction: column-reverse;
             }
         }
     </style>
@@ -198,6 +372,9 @@
         const refreshHistoryBtn = document.getElementById('refreshHistoryBtn');
         const searchChatInput = document.getElementById('searchChatInput');
         const statusFilter = document.getElementById('statusFilter');
+        const deleteHistoryForm = document.getElementById('deleteHistoryForm');
+        const deleteHistoryBtn = document.getElementById('deleteHistoryBtn');
+        const historyStats = document.getElementById('historyStats');
 
         let chats = [];
         let selectedChatId = null;
@@ -213,28 +390,43 @@
             }[char]));
         }
 
+        function parseAppTime(value) {
+            if (!value) {
+                return null;
+            }
+
+            const text = String(value);
+
+            if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(text)) {
+                return new Date(`${text.replace(' ', 'T')}+07:00`);
+            }
+
+            return new Date(text);
+        }
+
         function formatTime(value) {
             if (!value) {
                 return '-';
             }
 
-            return new Date(value).toLocaleString('id-ID', {
+            return parseAppTime(value).toLocaleString('id-ID', {
                 day: '2-digit',
                 month: 'short',
                 year: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit',
+                timeZone: 'Asia/Jakarta',
             });
         }
 
         function statusBadge(status) {
             const map = {
-                bot: ['Bot', 'primary'],
-                waiting_cs: ['Waiting CS', 'warning'],
-                handled_by_cs: ['Handled CS', 'success'],
-                closed: ['Closed', 'secondary'],
+                bot: ['Bot', 'chat-badge-blue'],
+                waiting_cs: ['Menunggu Admin Sekolah', 'chat-badge-yellow'],
+                handled_by_cs: ['Ditangani Admin Sekolah', 'chat-badge-red'],
+                closed: ['Closed', 'chat-badge-muted'],
             };
-            return map[status] || [status || '-', 'secondary'];
+            return map[status] || [status || '-', 'chat-badge-muted'];
         }
 
         function setHistoryMessage(text, type = 'info') {
@@ -242,8 +434,34 @@
             historyMessage.textContent = text;
         }
 
+        function renderHistoryStats() {
+            const counts = chats.reduce((result, chat) => {
+                result[chat.status] = (result[chat.status] || 0) + 1;
+                return result;
+            }, {});
+
+            historyStats.innerHTML = `
+                <div class="history-stat-card history-stat-bot">
+                    <i class="mdi mdi-robot-outline"></i>
+                    <span>Dijawab Bot</span>
+                    <strong>${counts.bot || 0}</strong>
+                </div>
+                <div class="history-stat-card history-stat-waiting">
+                    <i class="mdi mdi-account-clock-outline"></i>
+                    <span>Menunggu Admin</span>
+                    <strong>${counts.waiting_cs || 0}</strong>
+                </div>
+                <div class="history-stat-card history-stat-admin">
+                    <i class="mdi mdi-account-check-outline"></i>
+                    <span>Ditangani Admin</span>
+                    <strong>${counts.handled_by_cs || 0}</strong>
+                </div>
+            `;
+        }
+
         function renderChats() {
             chatCount.textContent = chats.length;
+            renderHistoryStats();
 
             if (!chats.length) {
                 chatList.innerHTML = '<div class="text-muted text-center py-5">Belum ada riwayat chat.</div>';
@@ -260,7 +478,7 @@
                     <div class="history-item ${active}" data-chat-id="${chat.id}">
                         <div class="d-flex align-items-center justify-content-between mb-2">
                             <strong>${escapeHtml(title)}</strong>
-                            <span class="badge badge-opacity-${type}">${label}</span>
+                            <span class="badge ${type}">${label}</span>
                         </div>
                         <p class="text-muted mb-2 history-last-message">${escapeHtml(chat.lastMessage || '-')}</p>
                         <div class="d-flex align-items-center justify-content-between">
@@ -277,11 +495,13 @@
             historyTitle.textContent = 'Pilih chat';
             historySubtitle.textContent = 'Detail pesan akan tampil di sini.';
             historyStatus.textContent = '-';
-            historyStatus.className = 'badge badge-opacity-secondary';
+            historyStatus.className = 'badge chat-badge-muted';
+            deleteHistoryForm.action = '#';
+            deleteHistoryBtn.disabled = true;
             historySummary.innerHTML = `
                 <div><span class="text-muted d-block">Total Pesan</span><strong>0</strong></div>
                 <div><span class="text-muted d-block">Kandidat Latih</span><strong>0</strong></div>
-                <div><span class="text-muted d-block">Butuh CS</span><strong>0</strong></div>
+                <div><span class="text-muted d-block">Butuh Admin Sekolah</span><strong>0</strong></div>
             `;
             messageList.innerHTML = '<div class="text-muted text-center py-5">Pilih salah satu chat dari daftar.</div>';
         }
@@ -296,11 +516,13 @@
             const sourceLabel = chat.waNumber && chat.waNumber.startsWith('WEB-') ? 'Website' : chat.waNumber;
             historySubtitle.textContent = `${sourceLabel} - ${formatTime(chat.lastMessageAt || chat.updatedAt)}`;
             historyStatus.textContent = label;
-            historyStatus.className = `badge badge-opacity-${type}`;
+            historyStatus.className = `badge ${type}`;
+            deleteHistoryForm.action = `<?= site_url('dashboard/history-chat') ?>/${chat.id}/delete`;
+            deleteHistoryBtn.disabled = false;
             historySummary.innerHTML = `
                 <div><span class="text-muted d-block">Total Pesan</span><strong>${messages.length}</strong></div>
                 <div><span class="text-muted d-block">Kandidat Latih</span><strong>${trainingCount}</strong></div>
-                <div><span class="text-muted d-block">Butuh CS</span><strong>${needsCsCount}</strong></div>
+                <div><span class="text-muted d-block">Butuh Admin Sekolah</span><strong>${needsCsCount}</strong></div>
             `;
 
             if (!messages.length) {
@@ -311,20 +533,16 @@
             messageList.innerHTML = messages.map((message) => {
                 const badges = [];
 
-                if (message.sender === 'bot') {
-                    badges.push(`<span class="badge badge-opacity-${message.chatbotUnderstood ? 'success' : 'danger'}">${message.chatbotUnderstood ? 'Bot Paham' : 'Bot Tidak Paham'}</span>`);
+                if (message.sender !== 'bot' && message.answeredByChatbot) {
+                    badges.push('<span class="badge badge-chatbot">Dijawab Chatbot</span>');
                 }
 
-                if (message.answeredByChatbot) {
-                    badges.push('<span class="badge badge-opacity-primary">Dijawab Chatbot</span>');
+                if (message.sender !== 'bot' && message.needsCs) {
+                    badges.push('<span class="badge badge-admin">Butuh Admin Sekolah</span>');
                 }
 
-                if (message.needsCs) {
-                    badges.push('<span class="badge badge-opacity-warning">Butuh CS</span>');
-                }
-
-                if (message.isTrainingCandidate) {
-                    badges.push('<span class="badge badge-opacity-info">Data Latih</span>');
+                if (message.sender !== 'bot' && message.isTrainingCandidate) {
+                    badges.push('<span class="badge badge-training">Data Latih</span>');
                 }
 
                 return `

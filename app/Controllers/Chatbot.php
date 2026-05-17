@@ -56,6 +56,68 @@ class Chatbot extends ResourceController
         return $this->nlpRules;
     }
 
+    private function isGreetingOnly(string $message): bool
+    {
+        $normalized = $this->normalizeText($message);
+
+        if ($normalized === '') {
+            return false;
+        }
+
+        $greetingPhrases = [
+            'assalamualaikum',
+            'assalamu alaikum',
+            'asalamualaikum',
+            'halo',
+            'hallo',
+            'hai',
+            'hy',
+            'selamat pagi',
+            'selamat siang',
+            'selamat sore',
+            'selamat malam',
+            'pagi',
+            'siang',
+            'sore',
+            'malam',
+            'permisi',
+        ];
+
+        if (in_array($normalized, $greetingPhrases, true)) {
+            return true;
+        }
+
+        $tokens = $this->tokenize($message);
+        $greetingTokens = [
+            'assalamualaikum',
+            'halo',
+            'hai',
+            'hy',
+            'selamat',
+            'pagi',
+            'siang',
+            'sore',
+            'malam',
+            'permisi',
+            'admin',
+            'bu',
+            'pak',
+        ];
+
+        return $tokens !== [] && count(array_diff($tokens, $greetingTokens)) === 0;
+    }
+
+    private function getIntentResponse(array $dataset, string $intentName): ?string
+    {
+        foreach ($dataset as $item) {
+            if (($item['name'] ?? '') === $intentName && !empty($item['response'])) {
+                return $item['response'];
+            }
+        }
+
+        return null;
+    }
+
     private function findLocalAnswer(string $message): ?string
     {
         $query = $this->normalizeText($message);
@@ -67,6 +129,10 @@ class Chatbot extends ResourceController
         $dataset = (new ChatbotIntentModel())->getActiveTrainingDataset();
         if (!$dataset) {
             return null;
+        }
+
+        if ($this->isGreetingOnly($message)) {
+            return $this->getIntentResponse($dataset, 'salam_pembuka');
         }
 
         return $this->findNaiveBayesAnswer($message, $dataset);
@@ -89,10 +155,7 @@ class Chatbot extends ResourceController
                 continue;
             }
 
-            $trainingText = implode(' ', array_merge(
-                $item['training_phrases'] ?? [],
-                $item['keywords'] ?? []
-            ));
+            $trainingText = implode(' ', $item['training_phrases'] ?? []);
             $tokens = array_values(array_filter($this->tokenize($trainingText), fn ($token) => strlen($token) > 2));
             if (!$tokens) {
                 continue;
@@ -175,7 +238,7 @@ class Chatbot extends ResourceController
 
     private function now(): string
     {
-        return date('Y-m-d H:i:s');
+        return (new \DateTimeImmutable('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
     }
 
     private function upsertWebChat(string $sessionId, ?string $contactName = null): int
@@ -233,7 +296,10 @@ class Chatbot extends ResourceController
 
     private function isCustomerServiceOffer(string $text): bool
     {
-        return str_contains($this->normalizeText($text), 'terhubung dengan cs');
+        $normalized = $this->normalizeText($text);
+
+        return str_contains($normalized, 'terhubung dengan admin sekolah')
+            || str_contains($normalized, 'terhubung dengan admin');
     }
 
     private function wantsCustomerService(string $text): bool
@@ -241,20 +307,47 @@ class Chatbot extends ResourceController
         $normalized = $this->normalizeText($text);
         $tokens = $this->tokenize($text);
 
-        foreach (['customer service', 'terhubung dengan cs', 'hubungkan ke cs'] as $phrase) {
+        foreach ([
+            'admin sekolah',
+            'terhubung dengan admin sekolah',
+            'terhubung dengan admin',
+            'hubungkan ke admin sekolah',
+            'hubungkan ke admin',
+        ] as $phrase) {
             if (str_contains($normalized, $phrase)) {
                 return true;
             }
         }
 
         return (bool) array_intersect($tokens, [
-            'cs',
             'admin',
             'operator',
             'iya',
             'ya',
             'mau',
             'boleh',
+        ]);
+    }
+
+    private function declinesCustomerService(string $text): bool
+    {
+        $normalized = $this->normalizeText($text);
+        $tokens = $this->tokenize($text);
+
+        foreach (['tidak', 'tidak usah', 'ga usah', 'gak usah', 'nggak usah', 'tidak perlu'] as $phrase) {
+            if ($normalized === $phrase || str_contains($normalized, $phrase)) {
+                return true;
+            }
+        }
+
+        return (bool) array_intersect($tokens, [
+            'tidak',
+            'ga',
+            'gak',
+            'nggak',
+            'enggak',
+            'tdk',
+            'no',
         ]);
     }
 
@@ -336,20 +429,41 @@ class Chatbot extends ResourceController
                 'answered_by_chatbot' => 0,
             ]);
 
-            if ($this->webChatHasHandoffOffer($chatId) && $this->wantsCustomerService($message)) {
-                $ticketId = $this->createSupportTicket($chatId, $userMessageId);
-                $reply = 'Baik, Anda sudah terhubung dengan CS. Mohon tunggu balasan admin.';
-                $this->insertMessage($chatId, 'outgoing', 'bot', $reply, [
-                    'chatbot_understood' => 0,
-                    'needs_cs' => 1,
-                    'is_training_candidate' => 1,
-                ]);
+            if ($this->webChatHasHandoffOffer($chatId)) {
+                if ($this->declinesCustomerService($message)) {
+                    $reply = 'Baik, tidak saya hubungkan ke admin sekolah. Silakan tulis pertanyaan lain jika masih membutuhkan bantuan.';
+                    $this->insertMessage($chatId, 'outgoing', 'bot', $reply, [
+                        'chatbot_understood' => 1,
+                        'needs_cs' => 0,
+                    ]);
+                    db_connect()->table('wa_messages')->where('id', $userMessageId)->update([
+                        'answered_by_chatbot' => 1,
+                        'chatbot_understood' => 1,
+                        'needs_cs' => 0,
+                        'updated_at' => $this->now(),
+                    ]);
 
-                return $this->respond(array_merge($this->choiceResponse($reply), [
-                    'chat_id' => $chatId,
-                    'ticket_id' => $ticketId,
-                    'handoff' => true,
-                ]));
+                    return $this->respond(array_merge($this->choiceResponse($reply), [
+                        'chat_id' => $chatId,
+                        'handoff' => false,
+                    ]));
+                }
+
+                if ($this->wantsCustomerService($message)) {
+                    $ticketId = $this->createSupportTicket($chatId, $userMessageId);
+                    $reply = 'Baik, Anda sudah terhubung dengan admin sekolah. Mohon tunggu balasan admin.';
+                    $this->insertMessage($chatId, 'outgoing', 'bot', $reply, [
+                        'chatbot_understood' => 0,
+                        'needs_cs' => 1,
+                        'is_training_candidate' => 1,
+                    ]);
+
+                    return $this->respond(array_merge($this->choiceResponse($reply), [
+                        'chat_id' => $chatId,
+                        'ticket_id' => $ticketId,
+                        'handoff' => true,
+                    ]));
+                }
             }
         }
 
@@ -372,7 +486,7 @@ class Chatbot extends ResourceController
         }
 
         if ($isWebChat && $chatId && $openTicket = $this->getOpenSupportTicket($chatId)) {
-            $reply = 'Pesan Anda sudah diteruskan ke CS. Mohon tunggu balasan admin.';
+            $reply = 'Pesan Anda sudah diteruskan ke admin sekolah. Mohon tunggu balasan admin.';
             $this->insertMessage($chatId, 'outgoing', 'bot', $reply, [
                 'chatbot_understood' => 0,
                 'needs_cs' => 1,
@@ -386,7 +500,7 @@ class Chatbot extends ResourceController
             ]));
         }
 
-        $fallback = 'Maaf, saya belum bisa memahami pertanyaan Anda. Apakah Anda ingin terhubung dengan CS?';
+        $fallback = 'Maaf, saya belum bisa memahami pertanyaan Anda. Apakah Anda ingin terhubung dengan admin sekolah?';
 
         if ($isWebChat && $chatId) {
             $this->insertMessage($chatId, 'outgoing', 'bot', $fallback, [

@@ -11,7 +11,22 @@ class WhatsAppHistory extends ResourceController
 
     private function now(): string
     {
-        return date('Y-m-d H:i:s');
+        return (new \DateTimeImmutable('now', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
+    }
+
+    private function timestamp(?string $value = null): string
+    {
+        if (!$value) {
+            return $this->now();
+        }
+
+        try {
+            return (new \DateTimeImmutable($value))
+                ->setTimezone(new \DateTimeZone('Asia/Jakarta'))
+                ->format('Y-m-d H:i:s');
+        } catch (\Exception) {
+            return $this->now();
+        }
     }
 
     private function input(): object
@@ -51,6 +66,8 @@ class WhatsAppHistory extends ResourceController
     {
         $db = db_connect();
         $now = $this->now();
+        $sentAt = $this->timestamp($data['sent_at'] ?? null);
+        unset($data['sent_at']);
 
         $db->table('wa_messages')->insert(array_merge([
             'wa_message_id' => null,
@@ -58,7 +75,7 @@ class WhatsAppHistory extends ResourceController
             'chatbot_understood' => null,
             'needs_cs' => 0,
             'is_training_candidate' => 0,
-            'sent_at' => $now,
+            'sent_at' => $sentAt,
             'created_at' => $now,
             'updated_at' => $now,
         ], $data));
@@ -67,7 +84,7 @@ class WhatsAppHistory extends ResourceController
 
         $db->table('wa_chats')->where('id', $data['chat_id'])->update([
             'last_message' => $data['message'],
-            'last_message_at' => $data['sent_at'] ?? $now,
+            'last_message_at' => $sentAt,
             'updated_at' => $now,
         ]);
 
@@ -360,7 +377,7 @@ class WhatsAppHistory extends ResourceController
         }
 
         if ($ticket['status'] !== 'open') {
-            return $this->failValidationErrors('Chat CS sudah diakhiri.');
+            return $this->failValidationErrors('Chat admin sekolah sudah diakhiri.');
         }
 
         $adminMessageId = $this->insertMessage([
@@ -433,7 +450,6 @@ class WhatsAppHistory extends ResourceController
                 $intentModel->saveIntentDataset([
                     'name' => 'draft_admin_reply_' . $ticketId,
                     'training_phrases' => [$question],
-                    'keywords' => array_values(array_filter(array_unique(array_map('trim', preg_split('/\s+/', strtolower($question)) ?: [])))),
                     'response' => $expectedAnswer,
                     'status' => 'draft',
                     'priority' => 0,

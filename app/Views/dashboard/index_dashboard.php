@@ -146,7 +146,7 @@ $questionerChartData = $questionerChartData ?? [];
                             <a class="admin-workflow-item" href="<?= site_url('dashboard/support-chat') ?>">
                                 <span>2</span>
                                 <div>
-                                    <h5>Tangani Chat CS</h5>
+                                    <h5>Tangani Chat Admin Sekolah</h5>
                                     <p>Balas percakapan yang tidak bisa diselesaikan otomatis oleh bot.</p>
                                 </div>
                                 <i class="mdi mdi-chevron-right"></i>

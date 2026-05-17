@@ -47,7 +47,7 @@ $action = $isEdit
                                 <label class="form-label" for="name">Intent</label>
                                 <input class="form-control" id="name" name="name" type="text" required
                                     value="<?= esc(old('name', $item['name'] ?? '')) ?>"
-                                    placeholder="contoh: syarat_ppdb">
+                                    placeholder="contoh: syarat_spmb">
                             </div>
 
                             <div class="mb-3">

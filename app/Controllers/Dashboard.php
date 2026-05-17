@@ -150,6 +150,48 @@ class Dashboard extends BaseController
         return view('dashboard/history_chat');
     }
 
+    public function deleteHistoryChat(int $id): RedirectResponse
+    {
+        $db = db_connect();
+        $chat = $db->table('wa_chats')->where('id', $id)->get()->getRowArray();
+
+        if (!$chat) {
+            return redirect()->to(site_url('dashboard/history-chat'))->with('error', 'Riwayat chat tidak ditemukan.');
+        }
+
+        $messageIds = array_column(
+            $db->table('wa_messages')
+                ->select('id')
+                ->where('chat_id', $id)
+                ->get()
+                ->getResultArray(),
+            'id'
+        );
+
+        $db->transStart();
+
+        if ($messageIds && $db->tableExists('chatbot_training_data')) {
+            $db->table('chatbot_training_data')
+                ->whereIn('source_message_id', array_map('intval', $messageIds))
+                ->delete();
+        }
+
+        if ($db->tableExists('wa_support_tickets')) {
+            $db->table('wa_support_tickets')->where('chat_id', $id)->delete();
+        }
+
+        $db->table('wa_messages')->where('chat_id', $id)->delete();
+        $db->table('wa_chats')->where('id', $id)->delete();
+
+        $db->transComplete();
+
+        if ($db->transStatus() === false) {
+            return redirect()->to(site_url('dashboard/history-chat'))->with('error', 'Gagal menghapus riwayat chat.');
+        }
+
+        return redirect()->to(site_url('dashboard/history-chat'))->with('success', 'Riwayat chat berhasil dihapus.');
+    }
+
     public function profile(): string|RedirectResponse
     {
         $this->ensureAdminProfileSchema();
@@ -426,6 +468,7 @@ class Dashboard extends BaseController
         return view('dashboard/training_phrases/index', [
             'items' => $model->getTrainingPhraseRows($keyword, $intentId),
             'intents' => $model->getSimpleIntents(),
+            'trainingSummary' => $model->getTrainingPhraseSummary(),
             'keyword' => $keyword,
             'intentId' => $intentId,
         ]);

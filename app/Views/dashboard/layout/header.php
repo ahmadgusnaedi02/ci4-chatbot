@@ -5,7 +5,7 @@
     <!-- Required meta tags -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>Admin PPDB - SMPS Plus Fajar Sentosa</title>
+    <title>Admin SPMB - SMPS Plus Fajar Sentosa</title>
     <!-- plugins:css -->
     <link rel="stylesheet" href="<?= base_url('assets/vendors/feather/feather.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/vendors/mdi/css/materialdesignicons.min.css') ?>">

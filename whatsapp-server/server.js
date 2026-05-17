@@ -80,8 +80,7 @@ function wantsCustomerService(text) {
   const normalized = normalizeText(text);
 
   return [
-    'cs',
-    'customer service',
+    'admin sekolah',
     'admin',
     'terhubung',
     'hubungkan',
@@ -94,7 +93,8 @@ function wantsCustomerService(text) {
 
 function isCustomerServiceOffer(text) {
   const normalized = normalizeText(text);
-  return normalized.includes('terhubung dengan cs');
+  return normalized.includes('terhubung dengan admin sekolah')
+    || normalized.includes('terhubung dengan admin');
 }
 
 async function apiRequest(path, options = {}) {
@@ -251,7 +251,7 @@ async function startClient() {
       const openTicket = await getOpenTicket(incoming.chat_id);
 
       if (openTicket) {
-        const reply = 'Pesan tambahan Anda sudah diteruskan ke CS. Mohon tunggu balasan admin.';
+        const reply = 'Pesan tambahan Anda sudah diteruskan ke admin sekolah. Mohon tunggu balasan admin.';
         await message.reply(reply);
         await logOutgoingMessage({
           chat_id: incoming.chat_id,
@@ -281,7 +281,7 @@ async function startClient() {
         };
         saveSupportStore();
 
-        const reply = 'Baik, Anda sudah terhubung dengan CS. Mohon tunggu balasan admin.';
+        const reply = 'Baik, Anda sudah terhubung dengan admin sekolah. Mohon tunggu balasan admin.';
         await message.reply(reply);
         await logOutgoingMessage({
           chat_id: incoming.chat_id,

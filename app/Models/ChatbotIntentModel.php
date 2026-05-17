@@ -114,10 +114,14 @@ class ChatbotIntentModel extends Model
             $this->insertUniqueRows('chatbot_suffixes', 'suffix', ['nya', 'lah', 'kah', 'pun'], date('Y-m-d H:i:s'));
         }
 
+        $this->seedCommonSynonyms();
+
         if (!$hasIntents) {
             $this->seedDefaultIntents();
             $this->seedPpdbTrainingPhrases();
         }
+
+        $this->seedExpandedTrainingPhrases();
 
         $this->schemaReady = true;
         $this->ensuringSchema = false;
@@ -134,7 +138,6 @@ class ChatbotIntentModel extends Model
 
         return array_map(function (array $intent): array {
             $intent['training_phrases'] = $this->getTrainingPhrases((int) $intent['id']);
-            $intent['keywords'] = $this->getKeywords((int) $intent['id']);
 
             return $intent;
         }, $intents);
@@ -325,6 +328,20 @@ class ChatbotIntentModel extends Model
         return $builder->get()->getResultArray();
     }
 
+    public function getTrainingPhraseSummary(): array
+    {
+        $this->ensureSchema();
+
+        return $this->db->table('chatbot_intents i')
+            ->select('i.id, i.name, i.status, COUNT(p.id) AS training_count')
+            ->join('chatbot_training_phrases p', 'p.intent_id = i.id', 'left')
+            ->groupBy('i.id, i.name, i.status')
+            ->orderBy('training_count', 'DESC')
+            ->orderBy('i.name', 'ASC')
+            ->get()
+            ->getResultArray();
+    }
+
     public function createTrainingPhrase(array $data): void
     {
         $this->ensureSchema();
@@ -444,19 +461,16 @@ class ChatbotIntentModel extends Model
                 ->like('i.name', $keyword)
                 ->orLike('i.response', $keyword)
                 ->orLike('p.phrase', $keyword)
-                ->orLike('k.keyword', $keyword)
                 ->groupEnd()
-                ->join('chatbot_training_phrases p', 'p.intent_id = i.id', 'left')
-                ->join('chatbot_keywords k', 'k.intent_id = i.id', 'left');
+                ->join('chatbot_training_phrases p', 'p.intent_id = i.id', 'left');
         }
 
         $countBuilder = clone $base;
         $total = (int) $countBuilder->select('COUNT(DISTINCT i.id) AS total')->get()->getRow('total');
 
         $builder = $this->db->table('chatbot_intents i')
-            ->select("i.*, GROUP_CONCAT(DISTINCT p.phrase ORDER BY p.id SEPARATOR '\n') AS training_phrases_text, GROUP_CONCAT(DISTINCT k.keyword ORDER BY k.keyword SEPARATOR ', ') AS keywords_text")
+            ->select("i.*, GROUP_CONCAT(DISTINCT p.phrase ORDER BY p.id SEPARATOR '\n') AS training_phrases_text")
             ->join('chatbot_training_phrases p', 'p.intent_id = i.id', 'left')
-            ->join('chatbot_keywords k', 'k.intent_id = i.id', 'left')
             ->groupBy('i.id')
             ->orderBy('i.priority', 'DESC')
             ->orderBy('i.id', 'DESC')
@@ -471,7 +485,6 @@ class ChatbotIntentModel extends Model
                 ->like('i.name', $keyword)
                 ->orLike('i.response', $keyword)
                 ->orLike('p.phrase', $keyword)
-                ->orLike('k.keyword', $keyword)
                 ->groupEnd();
         }
 
@@ -492,10 +505,6 @@ class ChatbotIntentModel extends Model
                 $data['training_phrases'] = array_values(array_unique(array_merge(
                     $this->getTrainingPhrases($id),
                     $data['training_phrases']
-                )));
-                $data['keywords'] = array_values(array_unique(array_merge(
-                    $this->getKeywords($id),
-                    $data['keywords']
                 )));
             }
         }
@@ -521,7 +530,6 @@ class ChatbotIntentModel extends Model
         }
 
         $this->replaceTrainingPhrases($intentId, $data['training_phrases'], $data['source']);
-        $this->replaceKeywords($intentId, $data['keywords']);
 
         return $intentId;
     }
@@ -607,7 +615,7 @@ class ChatbotIntentModel extends Model
         $this->insertUniqueRows('chatbot_stopwords', 'word', ['apa', 'aja', 'saja', 'yang', 'untuk', 'di', 'ke', 'itu', 'ini'], $now);
         $this->insertUniqueRows('chatbot_suffixes', 'suffix', ['nya', 'lah', 'kah', 'pun'], $now);
 
-        $synonyms = [
+        $this->insertSynonymRows([
             'dibuka' => 'pendaftaran',
             'mulai' => 'pendaftaran',
             'pendaftar' => 'pendaftaran',
@@ -620,8 +628,225 @@ class ChatbotIntentModel extends Model
             'dimana' => 'alamat',
             'mana' => 'alamat',
             'sekolahnya' => 'sekolah',
-        ];
+        ], $now);
+    }
 
+    private function seedCommonSynonyms(): void
+    {
+        $now = date('Y-m-d H:i:s');
+        $this->insertSynonymRows([
+            'hallo' => 'halo',
+            'haloo' => 'halo',
+            'halooo' => 'halo',
+            'haloooo' => 'halo',
+            'halooooo' => 'halo',
+            'haloooooo' => 'halo',
+            'halooooooo' => 'halo',
+            'hellow' => 'halo',
+            'helo' => 'halo',
+            'heloo' => 'halo',
+            'haii' => 'hai',
+            'haiii' => 'hai',
+            'hay' => 'hai',
+            'hayy' => 'hai',
+            'hy' => 'hai',
+            'pgi' => 'pagi',
+            'pagii' => 'pagi',
+            'siangg' => 'siang',
+            'mlm' => 'malam',
+            'malemm' => 'malam',
+            'assalamualaikm' => 'assalamualaikum',
+            'assalamualaikumm' => 'assalamualaikum',
+            'assalamuallaikum' => 'assalamualaikum',
+            'assalamualikum' => 'assalamualaikum',
+            'asalamualaikum' => 'assalamualaikum',
+            'askum' => 'assalamualaikum',
+            'samlekum' => 'assalamualaikum',
+            'waalaikumsalam' => 'assalamualaikum',
+            'trimakasih' => 'terima kasih',
+            'terimakasih' => 'terima kasih',
+            'trmksh' => 'terima kasih',
+            'trims' => 'terima kasih',
+            'thx' => 'terima kasih',
+            'thanks' => 'terima kasih',
+            'makasi' => 'makasih',
+            'makasii' => 'makasih',
+            'makasihh' => 'makasih',
+            'mksh' => 'makasih',
+            'mksih' => 'makasih',
+            'okey' => 'oke',
+            'okay' => 'oke',
+            'okeee' => 'oke',
+            'okee' => 'oke',
+            'sippp' => 'sip',
+            'siapp' => 'siap',
+            'dmn' => 'dimana',
+            'dmna' => 'dimana',
+            'dima' => 'dimana',
+            'dimna' => 'dimana',
+            'd mana' => 'dimana',
+            'diman' => 'dimana',
+            'dimanaa' => 'dimana',
+            'mn' => 'mana',
+            'mna' => 'mana',
+            'manaa' => 'mana',
+            'almt' => 'alamat',
+            'almat' => 'alamat',
+            'almatt' => 'alamat',
+            'alamatnya' => 'alamat',
+            'lokasih' => 'lokasi',
+            'loksi' => 'lokasi',
+            'lks' => 'lokasi',
+            'mapsnya' => 'maps',
+            'map' => 'maps',
+            'gmap' => 'maps',
+            'gmaps' => 'maps',
+            'sklh' => 'sekolah',
+            'sklah' => 'sekolah',
+            'sekolh' => 'sekolah',
+            'skolah' => 'sekolah',
+            'sekolahnya' => 'sekolah',
+            'smps' => 'sekolah',
+            'smp' => 'sekolah',
+            'kpn' => 'kapan',
+            'kapanx' => 'kapan',
+            'kpan' => 'kapan',
+            'kapn' => 'kapan',
+            'tgl' => 'tanggal',
+            'tggl' => 'tanggal',
+            'tanggalnya' => 'tanggal',
+            'jdwal' => 'jadwal',
+            'jadwalnya' => 'jadwal',
+            'jdwl' => 'jadwal',
+            'jdl' => 'jadwal',
+            'gel' => 'gelombang',
+            'gelombangx' => 'gelombang',
+            'gelombangnya' => 'gelombang',
+            'buka' => 'pendaftaran',
+            'bukaa' => 'pendaftaran',
+            'bukanya' => 'pendaftaran',
+            'dbuka' => 'pendaftaran',
+            'dibukaa' => 'pendaftaran',
+            'pendaftaranx' => 'pendaftaran',
+            'pendaftarannya' => 'pendaftaran',
+            'pendaftran' => 'pendaftaran',
+            'pendaptaran' => 'pendaftaran',
+            'ppdbnya' => 'ppdb',
+            'ppdbb' => 'ppdb',
+            'spmb' => 'ppdb',
+            'penerimaan' => 'pendaftaran',
+            'siswabaru' => 'siswa baru',
+            'siswa' => 'siswa',
+            'siswaa' => 'siswa',
+            'brp' => 'berapa',
+            'brpa' => 'berapa',
+            'brapa' => 'berapa',
+            'berapaannya' => 'berapa',
+            'byr' => 'bayar',
+            'bayarr' => 'bayar',
+            'bayarnya' => 'bayar',
+            'biayanya' => 'biaya',
+            'byaya' => 'biaya',
+            'byia' => 'biaya',
+            'biayaa' => 'biaya',
+            'duit' => 'biaya',
+            'uangnya' => 'uang',
+            'adm' => 'administrasi',
+            'administrasinya' => 'administrasi',
+            'cicil' => 'angsuran',
+            'dicicil' => 'angsuran',
+            'nyicil' => 'angsuran',
+            'sppnya' => 'spp',
+            'sppn' => 'spp',
+            'syart' => 'syarat',
+            'syrat' => 'syarat',
+            'sarat' => 'syarat',
+            'syaratt' => 'syarat',
+            'syaratnya' => 'syarat',
+            'persyaratan' => 'syarat',
+            'persyaratannya' => 'syarat',
+            'berkasnya' => 'berkas',
+            'brkas' => 'berkas',
+            'berkass' => 'berkas',
+            'dok' => 'dokumen',
+            'dokumennya' => 'dokumen',
+            'document' => 'dokumen',
+            'kk' => 'kartu keluarga',
+            'kaka' => 'kartu keluarga',
+            'kartukeluarga' => 'kartu keluarga',
+            'akte' => 'akta',
+            'aktelahir' => 'akta',
+            'ijasah' => 'ijazah',
+            'ijasa' => 'ijazah',
+            'ijazahnya' => 'ijazah',
+            'photo' => 'foto',
+            'poto' => 'foto',
+            'fotonya' => 'foto',
+            'frmulir' => 'formulir',
+            'formulirnya' => 'formulir',
+            'form' => 'formulir',
+            'onlinee' => 'online',
+            'onlen' => 'online',
+            'offlinee' => 'offline',
+            'prosedur' => 'alur',
+            'caranya' => 'cara',
+            'langkahnya' => 'alur',
+            'tahapannya' => 'alur',
+            'kontaknya' => 'kontak',
+            'contact' => 'kontak',
+            'no' => 'nomor',
+            'nomer' => 'nomor',
+            'nomornya' => 'nomor',
+            'nowa' => 'whatsapp',
+            'wa' => 'whatsapp',
+            'watsap' => 'whatsapp',
+            'whatsap' => 'whatsapp',
+            'whatsappnya' => 'whatsapp',
+            'adminnya' => 'admin',
+            'panitianya' => 'panitia',
+            'hubungin' => 'hubungi',
+            'hubunginya' => 'hubungi',
+            'tesnya' => 'tes',
+            'test' => 'tes',
+            'testing' => 'tes',
+            'seleksinya' => 'seleksi',
+            'slksi' => 'seleksi',
+            'ujianya' => 'ujian',
+            'ujiannya' => 'ujian',
+            'wawancaranya' => 'wawancara',
+            'observasinya' => 'observasi',
+            'kuotanya' => 'kuota',
+            'kuotaa' => 'kuota',
+            'quota' => 'kuota',
+            'quotanya' => 'kuota',
+            'kursinya' => 'kursi',
+            'penuhh' => 'penuh',
+            'tersedianya' => 'tersedia',
+            'sisa' => 'tersedia',
+            'seragamnya' => 'seragam',
+            'sragam' => 'seragam',
+            'srgm' => 'seragam',
+            'fasilitasnya' => 'fasilitas',
+            'fasilitass' => 'fasilitas',
+            'ekskulnya' => 'ekskul',
+            'eskul' => 'ekskul',
+            'extrakurikuler' => 'ekskul',
+            'ekstrakulikuler' => 'ekskul',
+            'bukunya' => 'buku',
+            'kegiatannya' => 'kegiatan',
+            'daful' => 'daftar ulang',
+            'daftarulang' => 'daftar ulang',
+            'ulangnya' => 'daftar ulang',
+            'diterimanya' => 'diterima',
+            'pindah' => 'pindahan',
+            'pindahanx' => 'pindahan',
+            'transferan' => 'transfer',
+            'verifikasinya' => 'verifikasi',
+        ], $now);
+    }
+
+    private function insertSynonymRows(array $synonyms, string $now): void
+    {
         foreach ($synonyms as $word => $normalizedWord) {
             if (!$this->db->table('chatbot_synonyms')->where('word', $word)->countAllResults()) {
                 $this->db->table('chatbot_synonyms')->insert([
@@ -889,6 +1114,199 @@ class ChatbotIntentModel extends Model
                 'source' => 'ppdb_training_seed',
             ]));
         }
+    }
+
+    private function seedExpandedTrainingPhrases(int $targetTotal = 800): void
+    {
+        $currentTotal = (int) $this->db->table('chatbot_training_phrases')->countAllResults();
+
+        if ($currentTotal >= $targetTotal) {
+            return;
+        }
+
+        $definitions = $this->expandedTrainingPhraseDefinitions();
+        $available = [];
+
+        foreach (array_keys($definitions) as $intentName) {
+            $intent = $this->db->table('chatbot_intents')->where('name', $intentName)->get()->getRowArray();
+
+            if ($intent) {
+                $available[$intentName] = $intent;
+            }
+        }
+
+        if (!$available) {
+            return;
+        }
+
+        $remaining = $targetTotal - $currentTotal;
+        $perIntent = (int) ceil($remaining / count($available)) + 10;
+        $now = date('Y-m-d H:i:s');
+
+        foreach ($available as $intentName => $intent) {
+            if ($currentTotal >= $targetTotal) {
+                break;
+            }
+
+            $intentId = (int) $intent['id'];
+            $existing = array_flip(array_map(
+                fn (string $phrase): string => strtolower(trim($phrase)),
+                $this->getTrainingPhrases($intentId)
+            ));
+            $rows = [];
+
+            foreach ($this->buildExpandedTrainingPhrases($definitions[$intentName], $perIntent) as $phrase) {
+                $key = strtolower(trim($phrase));
+
+                if ($key === '' || isset($existing[$key])) {
+                    continue;
+                }
+
+                $existing[$key] = true;
+                $rows[] = [
+                    'intent_id' => $intentId,
+                    'phrase' => $phrase,
+                    'source' => 'expanded_training_seed',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+
+                $currentTotal++;
+
+                if ($currentTotal >= $targetTotal) {
+                    break;
+                }
+            }
+
+            if ($rows) {
+                $this->db->table('chatbot_training_phrases')->insertBatch($rows);
+            }
+        }
+    }
+
+    private function expandedTrainingPhraseDefinitions(): array
+    {
+        return [
+            'jadwal_ppdb' => [
+                'openers' => ['assalamualaikum', 'permisi', 'halo admin', 'selamat pagi', 'mau tanya', 'izin bertanya'],
+                'questions' => ['kapan dibuka', 'mulai tanggal berapa', 'sampai kapan pendaftarannya', 'jadwalnya kapan', 'gelombang berikutnya kapan', 'pendaftaran masih buka kapan'],
+                'subjects' => ['ppdb', 'pendaftaran siswa baru', 'penerimaan peserta didik baru', 'daftar kelas tujuh', 'pendaftaran smp'],
+                'contexts' => ['tahun ini', 'di smps plus fajar sentosa', 'untuk anak saya', 'gelombang pertama', 'gelombang kedua', 'periode sekarang'],
+                'tails' => ['ya bu', 'ya pak', 'mohon infonya', 'boleh dibantu', 'terima kasih', 'admin'],
+            ],
+            'syarat_ppdb' => [
+                'openers' => ['assalamualaikum', 'permisi bu', 'permisi pak', 'halo admin', 'mau tanya', 'izin tanya'],
+                'questions' => ['apa saja syaratnya', 'berkas apa yang dibawa', 'dokumen apa yang diperlukan', 'persyaratannya lengkapnya apa', 'harus menyiapkan apa', 'apa yang wajib dilampirkan'],
+                'subjects' => ['ppdb', 'pendaftaran siswa baru', 'daftar sekolah', 'calon siswa baru', 'daftar ulang awal'],
+                'contexts' => ['untuk kelas tujuh', 'di sekolah ini', 'kalau ijazah belum keluar', 'untuk anak pindahan', 'saat datang ke sekolah', 'pendaftaran online'],
+                'tails' => ['ya bu', 'ya pak', 'mohon info', 'biar saya siapkan', 'terima kasih', 'admin'],
+            ],
+            'biaya_ppdb' => [
+                'openers' => ['assalamualaikum', 'permisi', 'halo admin', 'mau tanya biaya', 'izin bertanya', 'selamat siang'],
+                'questions' => ['berapa biayanya', 'berapa uang pendaftarannya', 'apakah ada rincian biaya', 'bisa dicicil tidak', 'spp per bulan berapa', 'biaya awal masuk berapa'],
+                'subjects' => ['ppdb', 'pendaftaran siswa baru', 'masuk smp', 'administrasi sekolah', 'seragam dan buku'],
+                'contexts' => ['tahun ini', 'untuk kelas tujuh', 'di smps plus fajar sentosa', 'kalau daftar sekarang', 'untuk siswa baru', 'gelombang pertama'],
+                'tails' => ['ya bu', 'ya pak', 'mohon rinciannya', 'boleh tahu', 'terima kasih', 'admin'],
+            ],
+            'alur_pendaftaran' => [
+                'openers' => ['assalamualaikum', 'permisi', 'halo admin', 'mau daftar', 'izin tanya', 'selamat sore'],
+                'questions' => ['bagaimana caranya', 'alur pendaftarannya seperti apa', 'mulainya dari mana', 'langkah pertama apa', 'bisa daftar online tidak', 'harus datang langsung tidak'],
+                'subjects' => ['ppdb', 'pendaftaran siswa baru', 'daftar ke sekolah', 'mengisi formulir', 'proses penerimaan'],
+                'contexts' => ['untuk anak saya', 'di smps plus fajar sentosa', 'kalau dari rumah', 'tahun ini', 'sebelum bawa berkas', 'setelah isi formulir'],
+                'tails' => ['ya bu', 'ya pak', 'mohon panduannya', 'biar tidak salah', 'terima kasih', 'admin'],
+            ],
+            'alamat_sekolah' => [
+                'openers' => ['assalamualaikum', 'permisi', 'halo admin', 'mau tanya lokasi', 'izin bertanya', 'selamat pagi'],
+                'questions' => ['alamatnya dimana', 'lokasinya di mana', 'bisa minta maps', 'arah ke sekolah lewat mana', 'tempat daftarnya di mana', 'sekolahnya dekat apa'],
+                'subjects' => ['smps plus fajar sentosa', 'sekolah', 'tempat ppdb', 'lokasi pendaftaran', 'alamat lengkap'],
+                'contexts' => ['kalau dari kediri', 'untuk survey', 'saat mau daftar', 'di google maps', 'untuk datang besok', 'bagian pendaftaran'],
+                'tails' => ['ya bu', 'ya pak', 'mohon titik lokasinya', 'boleh dishare', 'terima kasih', 'admin'],
+            ],
+            'kontak_panitia' => [
+                'openers' => ['assalamualaikum', 'permisi', 'halo admin', 'mau tanya nomor', 'izin minta kontak', 'selamat siang'],
+                'questions' => ['nomor wa panitia berapa', 'bisa hubungi siapa', 'kontak admin yang aktif apa', 'nomor ppdb resmi berapa', 'bisa konsultasi ke siapa', 'admin online jam berapa'],
+                'subjects' => ['ppdb', 'pendaftaran siswa baru', 'panitia sekolah', 'admin sekolah', 'bagian informasi'],
+                'contexts' => ['untuk tanya lanjutan', 'kalau mau daftar', 'untuk kirim berkas', 'di luar jam sekolah', 'tahun ini', 'sebelum datang'],
+                'tails' => ['ya bu', 'ya pak', 'mohon kontaknya', 'boleh dibantu', 'terima kasih', 'admin'],
+            ],
+            'tes_seleksi' => [
+                'openers' => ['assalamualaikum', 'permisi', 'halo admin', 'mau tanya tes', 'izin bertanya', 'selamat sore'],
+                'questions' => ['ada tes masuk tidak', 'seleksinya seperti apa', 'materi tesnya apa', 'ada wawancara tidak', 'observasi dilakukan kapan', 'tesnya online atau offline'],
+                'subjects' => ['ppdb', 'calon siswa baru', 'kelas tujuh', 'pendaftaran sekolah', 'tahap seleksi'],
+                'contexts' => ['setelah daftar', 'tahun ini', 'di smps plus fajar sentosa', 'untuk anak saya', 'sebelum diterima', 'gelombang sekarang'],
+                'tails' => ['ya bu', 'ya pak', 'mohon infonya', 'biar anak siap', 'terima kasih', 'admin'],
+            ],
+            'kuota_ppdb' => [
+                'openers' => ['assalamualaikum', 'permisi', 'halo admin', 'mau tanya kuota', 'izin bertanya', 'selamat pagi'],
+                'questions' => ['kuotanya masih ada tidak', 'kursi masih tersedia tidak', 'pendaftaran sudah penuh belum', 'sisa kuota berapa', 'masih bisa daftar tidak', 'ada daftar tunggu tidak'],
+                'subjects' => ['ppdb', 'kelas tujuh', 'siswa baru', 'pendaftaran sekolah', 'rombongan belajar'],
+                'contexts' => ['tahun ini', 'gelombang sekarang', 'kalau daftar minggu ini', 'untuk anak saya', 'di smps plus fajar sentosa', 'sebelum tutup'],
+                'tails' => ['ya bu', 'ya pak', 'mohon info kuotanya', 'boleh tahu', 'terima kasih', 'admin'],
+            ],
+            'seragam_fasilitas' => [
+                'openers' => ['assalamualaikum', 'permisi', 'halo admin', 'mau tanya fasilitas', 'izin bertanya', 'selamat siang'],
+                'questions' => ['fasilitasnya apa saja', 'ada ekstrakurikuler apa', 'seragamnya dapat apa saja', 'buku disediakan tidak', 'ada lab komputer tidak', 'kegiatan sekolahnya apa saja'],
+                'subjects' => ['sekolah', 'siswa baru', 'kelas tujuh', 'ppdb', 'smps plus fajar sentosa'],
+                'contexts' => ['setelah daftar', 'untuk anak saya', 'tahun ini', 'saat masuk awal', 'di sekolah ini', 'untuk informasi orang tua'],
+                'tails' => ['ya bu', 'ya pak', 'mohon infonya', 'boleh dijelaskan', 'terima kasih', 'admin'],
+            ],
+            'daftar_ulang_pindahan' => [
+                'openers' => ['assalamualaikum', 'permisi', 'halo admin', 'mau tanya daftar ulang', 'izin bertanya', 'selamat sore'],
+                'questions' => ['daftar ulang kapan', 'berkas daftar ulang apa saja', 'siswa pindahan bisa masuk tidak', 'proses pindahan bagaimana', 'verifikasi berkas kapan', 'setelah diterima harus apa'],
+                'subjects' => ['ppdb', 'siswa baru', 'siswa pindahan', 'daftar ulang', 'penerimaan sekolah'],
+                'contexts' => ['setelah bayar pendaftaran', 'kalau dari sekolah lain', 'tahun ini', 'untuk anak saya', 'di smps plus fajar sentosa', 'sebelum masuk sekolah'],
+                'tails' => ['ya bu', 'ya pak', 'mohon arahannya', 'biar saya siapkan', 'terima kasih', 'admin'],
+            ],
+            'penutup_chat' => [
+                'openers' => ['oke', 'baik', 'sip', 'siap', 'terima kasih', 'makasih'],
+                'questions' => ['sudah jelas', 'nanti saya lengkapi', 'nanti saya datang', 'saya paham', 'infonya membantu', 'saya kabari lagi'],
+                'subjects' => ['', 'bu', 'pak', 'admin'],
+                'contexts' => ['', 'untuk informasinya', 'sudah dibantu', 'atas jawabannya', 'semoga lancar'],
+                'tails' => ['', 'terima kasih', 'makasih banyak', 'jazakallah', 'sampai jumpa'],
+            ],
+            'salam_pembuka' => [
+                'openers' => ['assalamualaikum', 'halo', 'hai', 'selamat pagi', 'selamat siang', 'permisi'],
+                'questions' => ['admin', 'bu', 'pak', 'saya mau bertanya', 'ada yang bisa bantu', 'mau tanya ppdb'],
+                'subjects' => ['', 'tentang pendaftaran', 'seputar sekolah', 'untuk informasi ppdb'],
+                'contexts' => ['', 'hari ini', 'mohon dibantu', 'kalau boleh tanya', 'sebentar ya'],
+                'tails' => ['', 'terima kasih', 'ya bu', 'ya pak', 'admin'],
+            ],
+        ];
+    }
+
+    private function buildExpandedTrainingPhrases(array $definition, int $limit): array
+    {
+        $phrases = [];
+
+        foreach ($definition['openers'] as $opener) {
+            foreach ($definition['questions'] as $question) {
+                foreach ($definition['subjects'] as $subject) {
+                    foreach ($definition['contexts'] as $context) {
+                        foreach ($definition['tails'] as $tail) {
+                            $phrase = trim(preg_replace('/\s+/', ' ', implode(' ', array_filter([
+                                $opener,
+                                $question,
+                                $subject,
+                                $context,
+                                $tail,
+                            ]))));
+
+                            if ($phrase === '' || isset($phrases[$phrase])) {
+                                continue;
+                            }
+
+                            $phrases[$phrase] = $phrase;
+
+                            if (count($phrases) >= $limit) {
+                                return array_values($phrases);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return array_values($phrases);
     }
 
     private function insertUniqueRows(string $table, string $field, array $values, string $now): void

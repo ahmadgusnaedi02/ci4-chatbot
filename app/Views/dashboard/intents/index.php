@@ -93,7 +93,7 @@
                                                     </button>
                                                 </form>
                                                 <form action="<?= site_url('dashboard/intents/' . $item['id'] . '/delete') ?>" method="post"
-                                                    onsubmit="return confirm('Hapus intent ini beserta training phrase dan keyword-nya?')">
+                                                    data-confirm="Hapus intent ini beserta training phrase-nya?">
                                                     <?= csrf_field() ?>
                                                     <button class="dropdown-item text-danger" type="submit">
                                                         <i class="mdi mdi-delete me-2"></i>Hapus
