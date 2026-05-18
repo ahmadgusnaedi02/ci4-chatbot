@@ -2,6 +2,20 @@
 
 Service Node.js ini menghasilkan QR WhatsApp Web untuk halaman CodeIgniter:
 
+Cara paling mudah dari root project:
+
+```text
+Double click start-wa-server.bat
+```
+
+Untuk mematikan server:
+
+```text
+Double click stop-wa-server.bat
+```
+
+Atau jalankan manual dari terminal:
+
 ```bash
 cd whatsapp-server
 npm install

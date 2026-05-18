@@ -1,14 +1,15 @@
 <!-- Footer -->
+<?php $settings = $landingSettings ?? []; ?>
 <footer class="footer mt-auto">
     <div class="container text-center">
         <div class="mb-2">
-            <a href="#" class="text-white me-3"><i class="fab fa-facebook fa-lg"></i></a>
-            <a href="#" class="text-white me-3"><i class="fab fa-instagram fa-lg"></i></a>
-            <a href="#" class="text-white me-3"><i class="fab fa-twitter fa-lg"></i></a>
-            <a href="#" class="text-white"><i class="fab fa-youtube fa-lg"></i></a>
+            <a href="<?= esc($settings['facebook_url'] ?? '#', 'attr') ?>" class="text-white me-3"><i class="fab fa-facebook fa-lg"></i></a>
+            <a href="<?= esc($settings['instagram_url'] ?? '#', 'attr') ?>" class="text-white me-3"><i class="fab fa-instagram fa-lg"></i></a>
+            <a href="<?= esc($settings['twitter_url'] ?? '#', 'attr') ?>" class="text-white me-3"><i class="fab fa-twitter fa-lg"></i></a>
+            <a href="<?= esc($settings['youtube_url'] ?? '#', 'attr') ?>" class="text-white"><i class="fab fa-youtube fa-lg"></i></a>
         </div>
         <div>
-            &copy; <?= date('Y') ?> SMPS Plus Fajar Sentosa. Semua hak cipta dilindungi.
+            &copy; <?= date('Y') ?> <?= esc($settings['site_name'] ?? 'SMPS Plus Fajar Sentosa') ?>. Semua hak cipta dilindungi.
         </div>
     </div>
 </footer>

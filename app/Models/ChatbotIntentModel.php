@@ -22,6 +22,9 @@ class ChatbotIntentModel extends Model
 
     private bool $schemaReady = false;
     private bool $ensuringSchema = false;
+    private ?array $nlpRules = null;
+    private const COUNT_VECTORIZER_CACHE_KEY = 'chatbot_count_vectorizer_model';
+    private const NAIVE_BAYES_EVALUATION_CACHE_KEY = 'chatbot_naive_bayes_evaluation';
 
     public function ensureSchema(): void
     {
@@ -101,6 +104,48 @@ class ChatbotIntentModel extends Model
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
         ");
 
+        $this->db->query("
+            CREATE TABLE IF NOT EXISTS chatbot_evaluation_results (
+                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                algorithm VARCHAR(80) NOT NULL,
+                method VARCHAR(50) NOT NULL,
+                train_ratio DECIMAL(5,4) NOT NULL DEFAULT 0.8000,
+                test_ratio DECIMAL(5,4) NOT NULL DEFAULT 0.2000,
+                train_samples INT UNSIGNED NOT NULL DEFAULT 0,
+                test_samples INT UNSIGNED NOT NULL DEFAULT 0,
+                intent_count INT UNSIGNED NOT NULL DEFAULT 0,
+                accuracy DECIMAL(8,6) NOT NULL DEFAULT 0,
+                macro_precision DECIMAL(8,6) NOT NULL DEFAULT 0,
+                macro_recall DECIMAL(8,6) NOT NULL DEFAULT 0,
+                macro_f1 DECIMAL(8,6) NOT NULL DEFAULT 0,
+                weighted_f1 DECIMAL(8,6) NOT NULL DEFAULT 0,
+                unmatched_predictions INT UNSIGNED NOT NULL DEFAULT 0,
+                dataset_signature CHAR(64) NOT NULL,
+                result_json LONGTEXT NOT NULL,
+                created_at DATETIME NULL,
+                updated_at DATETIME NULL,
+                INDEX idx_chatbot_eval_algorithm_created (algorithm, created_at),
+                INDEX idx_chatbot_eval_signature (dataset_signature)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+        ");
+
+        $this->db->query("
+            CREATE TABLE IF NOT EXISTS chatbot_training_runs (
+                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                algorithm VARCHAR(80) NOT NULL,
+                intent_count INT UNSIGNED NOT NULL DEFAULT 0,
+                document_count INT UNSIGNED NOT NULL DEFAULT 0,
+                phrase_count INT UNSIGNED NOT NULL DEFAULT 0,
+                vocabulary_size INT UNSIGNED NOT NULL DEFAULT 0,
+                dataset_signature CHAR(64) NOT NULL,
+                model_json LONGTEXT NOT NULL,
+                created_at DATETIME NULL,
+                updated_at DATETIME NULL,
+                INDEX idx_chatbot_training_runs_algorithm_created (algorithm, created_at),
+                INDEX idx_chatbot_training_runs_signature (dataset_signature)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+        ");
+
         $hasIntents = (int) $this->db->table('chatbot_intents')->countAllResults() > 0;
         $hasStopWords = (int) $this->db->table('chatbot_stopwords')->countAllResults() > 0;
         $hasSuffixes = (int) $this->db->table('chatbot_suffixes')->countAllResults() > 0;
@@ -120,8 +165,6 @@ class ChatbotIntentModel extends Model
             $this->seedDefaultIntents();
             $this->seedPpdbTrainingPhrases();
         }
-
-        $this->seedExpandedTrainingPhrases();
 
         $this->schemaReady = true;
         $this->ensuringSchema = false;
@@ -147,6 +190,10 @@ class ChatbotIntentModel extends Model
     {
         $this->ensureSchema();
 
+        if ($this->nlpRules !== null) {
+            return $this->nlpRules;
+        }
+
         $stopWords = array_column($this->db->table('chatbot_stopwords')->select('word')->get()->getResultArray(), 'word');
         $suffixes = array_column($this->db->table('chatbot_suffixes')->select('suffix')->get()->getResultArray(), 'suffix');
         $synonymRows = $this->db->table('chatbot_synonyms')->select('word, normalized_word')->get()->getResultArray();
@@ -156,11 +203,278 @@ class ChatbotIntentModel extends Model
             $synonyms[$row['word']] = $row['normalized_word'];
         }
 
-        return [
+        $this->nlpRules = [
             'stopWords' => $stopWords,
             'suffixes' => $suffixes,
             'synonyms' => $synonyms,
         ];
+
+        return $this->nlpRules;
+    }
+
+    public function getCountVectorizerModel(bool $forceRetrain = false): array
+    {
+        $this->ensureSchema();
+        $signature = $this->getTrainingDatasetSignature();
+        $cached = cache(self::COUNT_VECTORIZER_CACHE_KEY);
+
+        if (!$forceRetrain && is_array($cached) && ($cached['signature'] ?? '') === $signature) {
+            return $cached;
+        }
+
+        return $this->trainCountVectorizerModel($signature);
+    }
+
+    public function trainCountVectorizerModel(?string $signature = null): array
+    {
+        $this->ensureSchema();
+        $dataset = $this->getActiveTrainingDataset();
+        $signature ??= $this->getTrainingDatasetSignature();
+        $vocabulary = [];
+        $intentVectors = [];
+        $documentCount = 0;
+        $phraseCount = 0;
+
+        foreach ($dataset as $intent) {
+            $intentName = trim((string) ($intent['name'] ?? ''));
+
+            if ($intentName === '') {
+                continue;
+            }
+
+            $intentVectors[$intentName] = [
+                'intent_id' => (int) ($intent['id'] ?? 0),
+                'name' => $intentName,
+                'response' => $intent['response'] ?? null,
+                'priority' => (int) ($intent['priority'] ?? 0),
+                'phrase_count' => 0,
+                'token_count' => 0,
+                'vector' => [],
+            ];
+
+            foreach ($intent['training_phrases'] ?? [] as $phrase) {
+                $tokens = array_values(array_filter($this->vectorizeTokens((string) $phrase), fn ($token) => strlen($token) > 2));
+
+                if (!$tokens) {
+                    continue;
+                }
+
+                $documentCount++;
+                $phraseCount++;
+                $intentVectors[$intentName]['phrase_count']++;
+
+                foreach ($tokens as $token) {
+                    $vocabulary[$token] = true;
+                    $intentVectors[$intentName]['vector'][$token] = ($intentVectors[$intentName]['vector'][$token] ?? 0) + 1;
+                    $intentVectors[$intentName]['token_count']++;
+                }
+            }
+
+            if ($intentVectors[$intentName]['token_count'] === 0) {
+                unset($intentVectors[$intentName]);
+            }
+        }
+
+        $model = [
+            'algorithm' => 'count_vectorizer_cosine',
+            'signature' => $signature,
+            'trained_at' => date('Y-m-d H:i:s'),
+            'vocabulary' => array_keys($vocabulary),
+            'intents' => $intentVectors,
+            'stats' => [
+                'intent_count' => count($intentVectors),
+                'document_count' => $documentCount,
+                'phrase_count' => $phraseCount,
+                'vocabulary_size' => count($vocabulary),
+            ],
+        ];
+
+        cache()->save(self::COUNT_VECTORIZER_CACHE_KEY, $model, 365 * 24 * 60 * 60);
+        $this->saveCountVectorizerTrainingRun($model);
+
+        return $model;
+    }
+
+    public function invalidateCountVectorizerModel(): void
+    {
+        cache()->delete(self::COUNT_VECTORIZER_CACHE_KEY);
+        cache()->delete(self::NAIVE_BAYES_EVALUATION_CACHE_KEY);
+    }
+
+    public function getCountVectorizerStatus(): array
+    {
+        $model = $this->getCountVectorizerModel();
+
+        return [
+            'algorithm' => $model['algorithm'] ?? 'count_vectorizer_cosine',
+            'trained_at' => $model['trained_at'] ?? null,
+            'stats' => $model['stats'] ?? [
+                'intent_count' => 0,
+                'document_count' => 0,
+                'phrase_count' => 0,
+                'vocabulary_size' => 0,
+            ],
+        ];
+    }
+
+    public function getLatestNaiveBayesEvaluation(): ?array
+    {
+        $this->ensureSchema();
+
+        $row = $this->db->table('chatbot_evaluation_results')
+            ->where('algorithm', 'multinomial_naive_bayes')
+            ->where('dataset_signature', $this->getTrainingDatasetSignature())
+            ->orderBy('id', 'DESC')
+            ->get(1)
+            ->getRowArray();
+
+        if ($row) {
+            return $this->evaluationResultFromRow($row);
+        }
+
+        $cached = cache(self::NAIVE_BAYES_EVALUATION_CACHE_KEY);
+
+        return is_array($cached) ? $cached : null;
+    }
+
+    public function evaluateNaiveBayesHoldOut(float $trainRatio = 0.8): array
+    {
+        $this->ensureSchema();
+        $trainRatio = max(0.1, min(0.9, $trainRatio));
+        $dataset = $this->getActiveTrainingDataset();
+        $trainSamples = [];
+        $testSamples = [];
+
+        foreach ($dataset as $intent) {
+            $intentName = trim((string) ($intent['name'] ?? ''));
+            $phrases = array_values(array_filter(array_map('trim', $intent['training_phrases'] ?? [])));
+
+            if ($intentName === '' || count($phrases) < 2) {
+                continue;
+            }
+
+            usort($phrases, static fn (string $left, string $right): int => strcmp(sha1($intentName . '|' . $left), sha1($intentName . '|' . $right)));
+
+            $total = count($phrases);
+            $testCount = max(1, (int) round($total * (1 - $trainRatio)));
+            $testCount = min($testCount, $total - 1);
+            $splitIndex = $total - $testCount;
+
+            foreach (array_slice($phrases, 0, $splitIndex) as $phrase) {
+                $trainSamples[] = [
+                    'intent' => $intentName,
+                    'phrase' => $phrase,
+                ];
+            }
+
+            foreach (array_slice($phrases, $splitIndex) as $phrase) {
+                $testSamples[] = [
+                    'intent' => $intentName,
+                    'phrase' => $phrase,
+                ];
+            }
+        }
+
+        $model = $this->trainNaiveBayesSamples($trainSamples);
+        $labels = array_values(array_unique(array_column($testSamples, 'intent')));
+        sort($labels);
+        $confusion = [];
+        $perClass = [];
+        $correct = 0;
+        $unmatched = 0;
+
+        foreach ($labels as $label) {
+            $confusion[$label] = [];
+            foreach ($labels as $predictedLabel) {
+                $confusion[$label][$predictedLabel] = 0;
+            }
+            $confusion[$label]['__unknown__'] = 0;
+        }
+
+        foreach ($testSamples as $sample) {
+            $actual = $sample['intent'];
+            $predicted = $this->predictNaiveBayesIntent($sample['phrase'], $model);
+
+            if ($predicted === null) {
+                $predicted = '__unknown__';
+                $unmatched++;
+            }
+
+            if (!isset($confusion[$actual][$predicted])) {
+                $confusion[$actual][$predicted] = 0;
+            }
+
+            $confusion[$actual][$predicted]++;
+
+            if ($actual === $predicted) {
+                $correct++;
+            }
+        }
+
+        foreach ($labels as $label) {
+            $tp = $confusion[$label][$label] ?? 0;
+            $fp = 0;
+            $fn = 0;
+
+            foreach ($labels as $actualLabel) {
+                if ($actualLabel !== $label) {
+                    $fp += $confusion[$actualLabel][$label] ?? 0;
+                }
+            }
+
+            foreach ($confusion[$label] as $predictedLabel => $total) {
+                if ($predictedLabel !== $label) {
+                    $fn += $total;
+                }
+            }
+
+            $precision = ($tp + $fp) > 0 ? $tp / ($tp + $fp) : 0.0;
+            $recall = ($tp + $fn) > 0 ? $tp / ($tp + $fn) : 0.0;
+            $f1 = ($precision + $recall) > 0 ? (2 * $precision * $recall) / ($precision + $recall) : 0.0;
+
+            $perClass[$label] = [
+                'support' => $tp + $fn,
+                'precision' => $precision,
+                'recall' => $recall,
+                'f1' => $f1,
+            ];
+        }
+
+        $testCount = count($testSamples);
+        $macroPrecision = $labels ? array_sum(array_column($perClass, 'precision')) / count($labels) : 0.0;
+        $macroRecall = $labels ? array_sum(array_column($perClass, 'recall')) / count($labels) : 0.0;
+        $macroF1 = $labels ? array_sum(array_column($perClass, 'f1')) / count($labels) : 0.0;
+        $supportTotal = max(1, array_sum(array_column($perClass, 'support')));
+        $weightedF1 = array_sum(array_map(
+            static fn (array $metrics): float => $metrics['f1'] * $metrics['support'],
+            $perClass
+        )) / $supportTotal;
+
+        $result = [
+            'algorithm' => 'multinomial_naive_bayes',
+            'method' => 'hold_out',
+            'train_ratio' => $trainRatio,
+            'test_ratio' => 1 - $trainRatio,
+            'evaluated_at' => date('Y-m-d H:i:s'),
+            'summary' => [
+                'train_samples' => count($trainSamples),
+                'test_samples' => $testCount,
+                'intent_count' => count($labels),
+                'accuracy' => $testCount > 0 ? $correct / $testCount : 0.0,
+                'macro_precision' => $macroPrecision,
+                'macro_recall' => $macroRecall,
+                'macro_f1' => $macroF1,
+                'weighted_f1' => $weightedF1,
+                'unmatched_predictions' => $unmatched,
+            ],
+            'per_class' => $perClass,
+            'confusion_matrix' => $confusion,
+        ];
+
+        $this->saveNaiveBayesEvaluationResult($result);
+        cache()->save(self::NAIVE_BAYES_EVALUATION_CACHE_KEY, $result, 365 * 24 * 60 * 60);
+
+        return $result;
     }
 
     public function getNlpRuleDataset(): array
@@ -189,6 +503,8 @@ class ChatbotIntentModel extends Model
             'created_at' => $now,
             'updated_at' => $now,
         ]));
+        $this->nlpRules = null;
+        $this->invalidateCountVectorizerModel();
     }
 
     public function updateNlpRule(string $type, int $id, array $data): void
@@ -214,6 +530,8 @@ class ChatbotIntentModel extends Model
         $this->db->table($config['table'])->where('id', $id)->update(array_merge($payload, [
             'updated_at' => date('Y-m-d H:i:s'),
         ]));
+        $this->nlpRules = null;
+        $this->invalidateCountVectorizerModel();
     }
 
     public function deleteNlpRule(string $type, int $id): void
@@ -221,6 +539,8 @@ class ChatbotIntentModel extends Model
         $this->ensureSchema();
         $config = $this->nlpRuleConfig($type);
         $this->db->table($config['table'])->where('id', $id)->delete();
+        $this->nlpRules = null;
+        $this->invalidateCountVectorizerModel();
     }
 
     public function getIntentWithRelations(int $id): ?array
@@ -278,6 +598,7 @@ class ChatbotIntentModel extends Model
         }
 
         $this->insert($payload);
+        $this->invalidateCountVectorizerModel();
     }
 
     public function updateIntentRow(int $id, array $data): void
@@ -298,6 +619,7 @@ class ChatbotIntentModel extends Model
         }
 
         $this->update($id, $payload);
+        $this->invalidateCountVectorizerModel();
     }
 
     public function deleteIntentRow(int $id): void
@@ -352,6 +674,7 @@ class ChatbotIntentModel extends Model
             'created_at' => $now,
             'updated_at' => $now,
         ]));
+        $this->invalidateCountVectorizerModel();
     }
 
     public function updateTrainingPhrase(int $id, array $data): void
@@ -366,12 +689,14 @@ class ChatbotIntentModel extends Model
         $this->db->table('chatbot_training_phrases')->where('id', $id)->update(array_merge($payload, [
             'updated_at' => date('Y-m-d H:i:s'),
         ]));
+        $this->invalidateCountVectorizerModel();
     }
 
     public function deleteTrainingPhrase(int $id): void
     {
         $this->ensureSchema();
         $this->db->table('chatbot_training_phrases')->where('id', $id)->delete();
+        $this->invalidateCountVectorizerModel();
     }
 
     public function getKeywordRows(string $keyword = '', int $intentId = 0): array
@@ -530,6 +855,7 @@ class ChatbotIntentModel extends Model
         }
 
         $this->replaceTrainingPhrases($intentId, $data['training_phrases'], $data['source']);
+        $this->invalidateCountVectorizerModel();
 
         return $intentId;
     }
@@ -540,6 +866,213 @@ class ChatbotIntentModel extends Model
         $this->db->table('chatbot_training_phrases')->where('intent_id', $id)->delete();
         $this->db->table('chatbot_keywords')->where('intent_id', $id)->delete();
         $this->delete($id);
+        $this->invalidateCountVectorizerModel();
+    }
+
+    private function getTrainingDatasetSignature(): string
+    {
+        $tables = [
+            'chatbot_intents',
+            'chatbot_training_phrases',
+            'chatbot_stopwords',
+            'chatbot_suffixes',
+            'chatbot_synonyms',
+        ];
+        $parts = [];
+
+        foreach ($tables as $table) {
+            $row = $this->db->table($table)
+                ->select('COUNT(*) AS total, MAX(updated_at) AS last_updated', false)
+                ->get()
+                ->getRowArray();
+
+            $parts[$table] = [
+                'total' => (int) ($row['total'] ?? 0),
+                'last_updated' => $row['last_updated'] ?? null,
+            ];
+        }
+
+        return hash('sha256', json_encode($parts));
+    }
+
+    private function saveCountVectorizerTrainingRun(array $model): void
+    {
+        $stats = $model['stats'] ?? [];
+        $now = date('Y-m-d H:i:s');
+
+        $this->db->table('chatbot_training_runs')->insert([
+            'algorithm' => $model['algorithm'] ?? 'count_vectorizer_cosine',
+            'intent_count' => (int) ($stats['intent_count'] ?? 0),
+            'document_count' => (int) ($stats['document_count'] ?? 0),
+            'phrase_count' => (int) ($stats['phrase_count'] ?? 0),
+            'vocabulary_size' => (int) ($stats['vocabulary_size'] ?? 0),
+            'dataset_signature' => $model['signature'] ?? $this->getTrainingDatasetSignature(),
+            'model_json' => json_encode([
+                'algorithm' => $model['algorithm'] ?? 'count_vectorizer_cosine',
+                'signature' => $model['signature'] ?? null,
+                'trained_at' => $model['trained_at'] ?? $now,
+                'stats' => $stats,
+                'vocabulary' => $model['vocabulary'] ?? [],
+            ], JSON_UNESCAPED_UNICODE),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    }
+
+    private function saveNaiveBayesEvaluationResult(array $result): void
+    {
+        $summary = $result['summary'] ?? [];
+        $now = date('Y-m-d H:i:s');
+
+        $this->db->table('chatbot_evaluation_results')->insert([
+            'algorithm' => $result['algorithm'] ?? 'multinomial_naive_bayes',
+            'method' => $result['method'] ?? 'hold_out',
+            'train_ratio' => (float) ($result['train_ratio'] ?? 0.8),
+            'test_ratio' => (float) ($result['test_ratio'] ?? 0.2),
+            'train_samples' => (int) ($summary['train_samples'] ?? 0),
+            'test_samples' => (int) ($summary['test_samples'] ?? 0),
+            'intent_count' => (int) ($summary['intent_count'] ?? 0),
+            'accuracy' => (float) ($summary['accuracy'] ?? 0),
+            'macro_precision' => (float) ($summary['macro_precision'] ?? 0),
+            'macro_recall' => (float) ($summary['macro_recall'] ?? 0),
+            'macro_f1' => (float) ($summary['macro_f1'] ?? 0),
+            'weighted_f1' => (float) ($summary['weighted_f1'] ?? 0),
+            'unmatched_predictions' => (int) ($summary['unmatched_predictions'] ?? 0),
+            'dataset_signature' => $this->getTrainingDatasetSignature(),
+            'result_json' => json_encode($result, JSON_UNESCAPED_UNICODE),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    }
+
+    private function evaluationResultFromRow(array $row): ?array
+    {
+        $result = json_decode((string) ($row['result_json'] ?? ''), true);
+
+        if (!is_array($result)) {
+            return null;
+        }
+
+        $result['id'] = (int) ($row['id'] ?? 0);
+        $result['stored_at'] = $row['created_at'] ?? null;
+        $result['dataset_signature'] = $row['dataset_signature'] ?? null;
+
+        return $result;
+    }
+
+    private function vectorizeTokens(string $text): array
+    {
+        $tokens = preg_split('/\s+/', $this->normalizeVectorText($text), -1, PREG_SPLIT_NO_EMPTY);
+        $tokens = array_map(fn ($token) => $this->normalizeVectorToken($token), $tokens ?: []);
+        $rules = $this->getNlpRules();
+
+        return array_values(array_filter($tokens, fn ($token) => !in_array($token, $rules['stopWords'], true)));
+    }
+
+    private function normalizeVectorText(string $text): string
+    {
+        $text = strtolower(trim($text));
+        $text = preg_replace('/[?!.]+$/', '', $text);
+        $text = preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', $text);
+
+        return trim(preg_replace('/\s+/', ' ', $text));
+    }
+
+    private function normalizeVectorToken(string $token): string
+    {
+        $rules = $this->getNlpRules();
+
+        if (isset($rules['synonyms'][$token])) {
+            return $rules['synonyms'][$token];
+        }
+
+        foreach ($rules['suffixes'] as $suffix) {
+            if (strlen($token) > strlen($suffix) + 3 && str_ends_with($token, $suffix)) {
+                $token = substr($token, 0, -strlen($suffix));
+                break;
+            }
+        }
+
+        return $rules['synonyms'][$token] ?? $token;
+    }
+
+    private function trainNaiveBayesSamples(array $samples): array
+    {
+        $classes = [];
+        $vocabulary = [];
+        $totalDocuments = 0;
+
+        foreach ($samples as $sample) {
+            $intent = trim((string) ($sample['intent'] ?? ''));
+            $tokens = array_values(array_filter($this->vectorizeTokens((string) ($sample['phrase'] ?? '')), fn ($token) => strlen($token) > 2));
+
+            if ($intent === '' || !$tokens) {
+                continue;
+            }
+
+            if (!isset($classes[$intent])) {
+                $classes[$intent] = [
+                    'document_count' => 0,
+                    'token_count' => 0,
+                    'tokens' => [],
+                ];
+            }
+
+            $classes[$intent]['document_count']++;
+            $totalDocuments++;
+
+            foreach ($tokens as $token) {
+                $classes[$intent]['tokens'][$token] = ($classes[$intent]['tokens'][$token] ?? 0) + 1;
+                $classes[$intent]['token_count']++;
+                $vocabulary[$token] = true;
+            }
+        }
+
+        return [
+            'classes' => $classes,
+            'vocabulary' => array_keys($vocabulary),
+            'total_documents' => $totalDocuments,
+        ];
+    }
+
+    private function predictNaiveBayesIntent(string $phrase, array $model): ?string
+    {
+        $queryTokens = array_values(array_filter($this->vectorizeTokens($phrase), fn ($token) => strlen($token) > 2));
+        $classes = $model['classes'] ?? [];
+        $vocabulary = $model['vocabulary'] ?? [];
+        $totalDocuments = (int) ($model['total_documents'] ?? 0);
+
+        if (!$queryTokens || !$classes || !$vocabulary || $totalDocuments === 0) {
+            return null;
+        }
+
+        $vocabularySize = count($vocabulary);
+        $bestIntent = null;
+        $bestScore = null;
+        $bestMatchedTokens = 0;
+
+        foreach ($classes as $intent => $classData) {
+            $score = log($classData['document_count'] / $totalDocuments);
+            $matchedTokens = 0;
+
+            foreach ($queryTokens as $token) {
+                $tokenFrequency = $classData['tokens'][$token] ?? 0;
+
+                if ($tokenFrequency > 0) {
+                    $matchedTokens++;
+                }
+
+                $score += log(($tokenFrequency + 1) / ($classData['token_count'] + $vocabularySize));
+            }
+
+            if ($bestScore === null || $score > $bestScore) {
+                $bestScore = $score;
+                $bestIntent = $intent;
+                $bestMatchedTokens = $matchedTokens;
+            }
+        }
+
+        return $bestMatchedTokens > 0 ? $bestIntent : null;
     }
 
     private function getTrainingPhrases(int $intentId): array

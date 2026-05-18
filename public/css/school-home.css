@@ -277,6 +277,120 @@ body {
     margin-bottom: 0;
 }
 
+.school-scroll-wrap {
+    display: flex;
+    gap: 0.7rem;
+    justify-content: flex-end;
+    margin: -0.5rem 0 1rem;
+}
+
+.school-scroll-btn {
+    align-items: center;
+    background: #fff;
+    border: 1px solid #d7e5ef;
+    border-radius: 8px;
+    color: var(--school-blue);
+    display: inline-flex;
+    height: 42px;
+    justify-content: center;
+    transition: 0.18s ease;
+    width: 42px;
+}
+
+.school-scroll-btn:hover,
+.school-scroll-btn:focus {
+    background: var(--school-blue);
+    border-color: var(--school-blue);
+    color: #fff;
+}
+
+.school-card-rail {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    padding: 0.25rem 0.15rem 1.15rem;
+    scroll-behavior: smooth;
+    scroll-snap-type: x mandatory;
+    scrollbar-color: var(--school-blue) #e8f0f6;
+    scrollbar-width: thin;
+}
+
+.school-card-rail::-webkit-scrollbar {
+    height: 8px;
+}
+
+.school-card-rail::-webkit-scrollbar-track {
+    background: #e8f0f6;
+    border-radius: 999px;
+}
+
+.school-card-rail::-webkit-scrollbar-thumb {
+    background: var(--school-blue);
+    border-radius: 999px;
+}
+
+.school-card-rail__item {
+    flex: 0 0 calc((100% - 3rem) / 4);
+    min-width: 0;
+    scroll-snap-align: start;
+}
+
+.news-card {
+    overflow: hidden;
+}
+
+.news-card__image {
+    aspect-ratio: 16 / 9;
+    border-radius: 8px;
+    display: block;
+    margin-bottom: 1rem;
+    object-fit: cover;
+    width: 100%;
+}
+
+.staff-card {
+    background: #fff;
+    border: 1px solid #e1ebf3;
+    border-radius: 8px;
+    height: 100%;
+    overflow: hidden;
+    box-shadow: 0 18px 45px rgba(13, 47, 79, 0.07);
+}
+
+.staff-card__photo {
+    aspect-ratio: 4 / 5;
+    display: block;
+    object-fit: cover;
+    object-position: center;
+    width: 100%;
+}
+
+.staff-card__body {
+    padding: 1.25rem;
+}
+
+.staff-card__body span {
+    color: var(--school-red);
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 900;
+    margin-bottom: 0.45rem;
+    text-transform: uppercase;
+}
+
+.staff-card__body h3 {
+    color: var(--school-ink);
+    font-size: 1.12rem;
+    font-weight: 900;
+    margin-bottom: 0.55rem;
+}
+
+.staff-card__body p {
+    color: var(--school-muted);
+    line-height: 1.55;
+    margin-bottom: 0;
+}
+
 .ppdb-panel {
     background: var(--school-blue-dark);
     color: #fff;
@@ -363,6 +477,10 @@ body {
     .stat-row {
         grid-template-columns: 1fr;
     }
+
+    .school-card-rail__item {
+        flex-basis: calc((100% - 1rem) / 2);
+    }
 }
 
 @media (max-width: 575.98px) {
@@ -385,6 +503,15 @@ body {
 
     .section-pad {
         padding: 3.5rem 0;
+    }
+
+    .school-scroll-wrap {
+        justify-content: flex-start;
+        margin-top: 0;
+    }
+
+    .school-card-rail__item {
+        flex-basis: 84%;
     }
 
     .ppdb-panel {

@@ -51,6 +51,12 @@
             </li>
 
             <li class="nav-item nav-category">Pengaturan</li>
+            <li class="nav-item <?= str_starts_with($currentPath, 'dashboard/landing-page') ? 'active' : '' ?>">
+                <a class="nav-link" href="<?= site_url('dashboard/landing-page') ?>">
+                    <i class="mdi mdi-monitor-dashboard menu-icon"></i>
+                    <span class="menu-title">Landing Page</span>
+                </a>
+            </li>
             <li class="nav-item <?= $currentPath === 'dashboard/profile' ? 'active' : '' ?>">
                 <a class="nav-link" href="<?= site_url('dashboard/profile') ?>">
                     <i class="mdi mdi-account-cog menu-icon"></i>

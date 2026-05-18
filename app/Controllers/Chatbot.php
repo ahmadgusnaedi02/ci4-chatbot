@@ -126,7 +126,8 @@ class Chatbot extends ResourceController
             return null;
         }
 
-        $dataset = (new ChatbotIntentModel())->getActiveTrainingDataset();
+        $intentModel = new ChatbotIntentModel();
+        $dataset = $intentModel->getActiveTrainingDataset();
         if (!$dataset) {
             return null;
         }
@@ -135,81 +136,58 @@ class Chatbot extends ResourceController
             return $this->getIntentResponse($dataset, 'salam_pembuka');
         }
 
-        return $this->findNaiveBayesAnswer($message, $dataset);
+        return $this->findCountVectorizerAnswer($message, $intentModel->getCountVectorizerModel());
     }
 
-    private function findNaiveBayesAnswer(string $message, array $dataset): ?string
+    private function findCountVectorizerAnswer(string $message, array $model): ?string
     {
         $queryTokens = array_values(array_filter($this->tokenize($message), fn ($token) => strlen($token) > 2));
         if (!$queryTokens) {
             return null;
         }
 
-        $classes = [];
-        $vocabulary = [];
-        $totalDocuments = 0;
-
-        foreach ($dataset as $item) {
-            $intent = trim((string) ($item['name'] ?? ''));
-            if ($intent === '') {
-                continue;
-            }
-
-            $trainingText = implode(' ', $item['training_phrases'] ?? []);
-            $tokens = array_values(array_filter($this->tokenize($trainingText), fn ($token) => strlen($token) > 2));
-            if (!$tokens) {
-                continue;
-            }
-
-            if (!isset($classes[$intent])) {
-                $classes[$intent] = [
-                    'documentCount' => 0,
-                    'tokenCount' => 0,
-                    'tokens' => [],
-                    'bestResponse' => null,
-                    'bestPriority' => PHP_INT_MIN,
-                ];
-            }
-
-            $classes[$intent]['documentCount']++;
-            $totalDocuments++;
-
-            foreach ($tokens as $token) {
-                $classes[$intent]['tokens'][$token] = ($classes[$intent]['tokens'][$token] ?? 0) + 1;
-                $classes[$intent]['tokenCount']++;
-                $vocabulary[$token] = true;
-            }
-
-            $priority = (int) ($item['priority'] ?? 0);
-            if ($priority > $classes[$intent]['bestPriority']) {
-                $classes[$intent]['bestPriority'] = $priority;
-                $classes[$intent]['bestResponse'] = $item['response'] ?? null;
-            }
+        $queryVector = [];
+        foreach ($queryTokens as $token) {
+            $queryVector[$token] = ($queryVector[$token] ?? 0) + 1;
         }
 
-        if (!$classes || $totalDocuments === 0 || !$vocabulary) {
+        if (empty($model['intents']) || empty($model['vocabulary'])) {
             return null;
         }
 
-        $vocabularySize = count($vocabulary);
         $bestIntent = null;
-        $bestScore = null;
+        $bestScore = 0.0;
         $bestMatchedTokens = 0;
 
-        foreach ($classes as $intent => $classData) {
-            $score = log($classData['documentCount'] / $totalDocuments);
+        foreach ($model['intents'] as $intent => $intentData) {
+            $intentVector = $intentData['vector'] ?? [];
             $matchedTokens = 0;
+            $dot = 0;
+            $queryMagnitude = 0;
+            $intentMagnitude = 0;
 
-            foreach ($queryTokens as $token) {
-                $tokenFrequency = $classData['tokens'][$token] ?? 0;
-                if ($tokenFrequency > 0) {
+            foreach ($queryVector as $token => $queryCount) {
+                $intentCount = (int) ($intentVector[$token] ?? 0);
+                $queryMagnitude += $queryCount ** 2;
+
+                if ($intentCount > 0) {
                     $matchedTokens++;
+                    $dot += $queryCount * $intentCount;
                 }
-
-                $score += log(($tokenFrequency + 1) / ($classData['tokenCount'] + $vocabularySize));
             }
 
-            if ($bestScore === null || $score > $bestScore) {
+            foreach ($intentVector as $count) {
+                $intentMagnitude += $count ** 2;
+            }
+
+            if ($dot <= 0 || $queryMagnitude <= 0 || $intentMagnitude <= 0) {
+                continue;
+            }
+
+            $score = $dot / (sqrt($queryMagnitude) * sqrt($intentMagnitude));
+            $score += ((int) ($intentData['priority'] ?? 0)) / 100000;
+
+            if ($score > $bestScore) {
                 $bestScore = $score;
                 $bestIntent = $intent;
                 $bestMatchedTokens = $matchedTokens;
@@ -220,7 +198,7 @@ class Chatbot extends ResourceController
             return null;
         }
 
-        return $classes[$bestIntent]['bestResponse'] ?: null;
+        return $model['intents'][$bestIntent]['response'] ?: null;
     }
 
     private function choiceResponse(string $content): array

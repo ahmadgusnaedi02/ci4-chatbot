@@ -15,7 +15,7 @@ $action = $isEdit
             <div>
                 <p class="admin-eyebrow mb-2">Dataset Chatbot</p>
                 <h2 class="admin-page-title mb-2"><?= $isEdit ? 'Edit Intent' : 'Tambah Intent' ?></h2>
-                <p class="admin-page-subtitle mb-0">Intent adalah kelas Naive Bayes dan tempat response utama disimpan.
+                <p class="admin-page-subtitle mb-0">Intent adalah kelas klasifikasi chatbot dan tempat response utama disimpan.
                 </p>
             </div>
             <a class="btn btn-outline-secondary mt-3 mt-md-0" href="<?= site_url('dashboard/intents') ?>">

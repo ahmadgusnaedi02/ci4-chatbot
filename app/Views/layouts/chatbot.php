@@ -1,3 +1,10 @@
+<?php
+    $settings = $landingSettings ?? [];
+    $logoPath = $settings['logo_url'] ?? 'assets/images/logo-yapas.png';
+    $logoUrl = str_starts_with($logoPath, 'http://') || str_starts_with($logoPath, 'https://')
+        ? $logoPath
+        : base_url($logoPath);
+?>
 <!-- Chatbot Toggle Button -->
 <button id="chatbot-toggler" class="chatbot-toggler" type="button">
     <span class="material-symbols-rounded open-icon">mode_comment</span>
@@ -8,7 +15,7 @@
     <!-- chatbot header -->
     <div class="chat-header">
         <div class="header-info">
-            <img class="chatbot-logo" src="<?= base_url('assets/images/logo-yapas.png') ?>" alt="Logo Yapas">
+            <img class="chatbot-logo" src="<?= esc($logoUrl, 'attr') ?>" alt="<?= esc($settings['site_name'] ?? 'Logo Sekolah', 'attr') ?>">
             <h2 class="logo-text">Chatbot SPMB</h2>
         </div>
         <button class="material-symbols-rounded" id="close-chatbot" type="button">
@@ -19,7 +26,7 @@
     <!-- chatbot body -->
     <div class="chat-body">
         <div class="message bot-message">
-            <img class="bot-avatar" src="<?= base_url('assets/images/logo-yapas.png') ?>" alt="Logo Yapas">
+            <img class="bot-avatar" src="<?= esc($logoUrl, 'attr') ?>" alt="<?= esc($settings['site_name'] ?? 'Logo Sekolah', 'attr') ?>">
             <div class="message-text">
                 Halo!</br>
                 Selamat datang di layanan informasi SPMB. Silakan ajukan pertanyaan seputar pendaftaran peserta didik
