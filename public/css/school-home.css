@@ -32,6 +32,7 @@ body {
     font-weight: 800;
     line-height: 1.15;
     letter-spacing: 0;
+    min-width: 0;
 }
 
 .school-logo {
@@ -70,6 +71,17 @@ body {
     padding: 0.85rem 1.1rem;
     font-weight: 800;
     white-space: nowrap;
+}
+
+.school-navbar-toggler {
+    border: 3px solid rgba(13, 47, 79, 0.65);
+    border-radius: 12px;
+    min-height: 48px;
+    width: 58px;
+}
+
+.school-navbar-toggler:focus {
+    box-shadow: 0 0 0 3px rgba(16, 79, 134, 0.16);
 }
 
 .school-home {
@@ -401,18 +413,27 @@ body {
 }
 
 .ppdb-panel::after {
-    content: "";
-    position: absolute;
-    right: -48px;
-    bottom: -80px;
-    width: 220px;
-    height: 220px;
-    background: var(--school-yellow);
-    clip-path: polygon(50% 0, 100% 100%, 0 100%);
+    display: none;
+}
+
+.ppdb-panel > .row {
+    position: relative;
+    z-index: 1;
+}
+
+.ppdb-panel__action {
+    display: flex;
+    justify-content: flex-end;
 }
 
 .ppdb-panel p {
     color: rgba(255, 255, 255, 0.82);
+}
+
+.ppdb-panel .btn-school-primary {
+    min-width: 180px;
+    position: relative;
+    z-index: 2;
 }
 
 .contact-list {
@@ -439,18 +460,162 @@ body {
     color: #fff !important;
 }
 
+.footer .container {
+    padding-bottom: 1rem;
+    padding-top: 1rem;
+}
+
+.footer-location-card {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.18);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    overflow: hidden;
+}
+
+.footer-map {
+    height: 360px;
+    overflow: hidden;
+    position: relative;
+}
+
+.footer-map::after {
+    background: linear-gradient(90deg, transparent 68%, rgba(7, 56, 95, 0.18));
+    content: "";
+    inset: 0;
+    pointer-events: none;
+    position: absolute;
+}
+
+.footer-map iframe {
+    border: 0;
+    display: block;
+    height: 100%;
+    width: 100%;
+}
+
+.footer-map-panel {
+    align-self: stretch;
+    background:
+        linear-gradient(135deg, rgba(16, 79, 134, 0.94), rgba(7, 56, 95, 0.98));
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.footer-map-kicker {
+    color: var(--school-yellow);
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+}
+
+.footer-map-panel h3 {
+    color: #fff;
+    font-size: 1.55rem;
+    font-weight: 900;
+    line-height: 1.18;
+    margin-bottom: 0.9rem;
+}
+
+.footer-map-panel p {
+    color: rgba(255, 255, 255, 0.82);
+    line-height: 1.6;
+    margin-bottom: 1.35rem;
+}
+
+.footer-map-action {
+    align-items: center;
+    background: var(--school-yellow);
+    border-radius: 8px;
+    color: #102b45;
+    display: inline-flex;
+    font-weight: 900;
+    gap: 0.55rem;
+    justify-content: center;
+    padding: 0.85rem 1rem;
+    text-decoration: none;
+    width: fit-content;
+}
+
+.footer-map-action:hover {
+    color: #102b45;
+    filter: brightness(0.96);
+}
+
 @media (max-width: 991.98px) {
     body {
-        padding-top: 78px;
+        padding-top: 82px;
     }
 
     .school-navbar {
         min-height: auto;
     }
 
+    .school-navbar > .container {
+        min-height: 82px;
+        position: relative;
+    }
+
+    .school-navbar .navbar-brand {
+        flex: 1 1 auto;
+        font-size: 1.25rem;
+        gap: 0.75rem !important;
+        margin-right: 0.75rem;
+        max-width: calc(100% - 76px);
+    }
+
     .school-logo {
         width: 54px;
         height: 54px;
+    }
+
+    .school-navbar-menu {
+        background: #fff;
+        border: 1px solid #dbe7ef;
+        border-radius: 8px;
+        box-shadow: 0 22px 45px rgba(13, 47, 79, 0.16);
+        left: 0.75rem;
+        max-height: calc(100vh - 104px);
+        overflow-y: auto;
+        padding: 0.75rem;
+        position: absolute;
+        right: 0.75rem;
+        top: calc(100% + 0.5rem);
+        z-index: 1090;
+    }
+
+    .school-navbar-menu .navbar-nav {
+        align-items: stretch !important;
+        gap: 0.15rem;
+        width: 100%;
+    }
+
+    .school-navbar .nav-link {
+        border-radius: 8px;
+        padding: 0.78rem 0.9rem !important;
+        text-decoration: none;
+    }
+
+    .school-navbar .nav-link:hover,
+    .school-navbar .nav-link.active {
+        background: #edf6fb;
+        text-decoration: none;
+    }
+
+    .school-navbar .btn-ppdb {
+        border-radius: 8px;
+        display: flex;
+        justify-content: center;
+        margin-top: 0.45rem;
+        padding: 0.85rem 1rem;
+        width: 100%;
     }
 
     .school-hero,
@@ -481,12 +646,57 @@ body {
     .school-card-rail__item {
         flex-basis: calc((100% - 1rem) / 2);
     }
+
+    .footer-location-card {
+        grid-template-columns: 1fr;
+    }
+
+    .footer-map {
+        height: 320px;
+    }
+
+    .footer-map::after {
+        display: none;
+    }
+
+    .footer-map-panel {
+        padding: 1.5rem;
+    }
 }
 
 @media (max-width: 575.98px) {
+    body {
+        padding-top: 82px;
+    }
+
+    .school-navbar > .container {
+        padding-left: 0.9rem;
+        padding-right: 0.9rem;
+    }
+
+    .school-navbar .navbar-brand {
+        font-size: 1.1rem;
+        line-height: 1.1;
+    }
+
+    .school-logo {
+        height: 52px;
+        width: 52px;
+    }
+
+    .school-navbar-toggler {
+        min-height: 46px;
+        width: 56px;
+    }
+
+    .school-navbar-menu {
+        left: 0.9rem;
+        right: 0.9rem;
+    }
+
     .school-hero,
     .school-hero__content {
-        min-height: 650px;
+        min-height: 600px;
     }
 
     .school-hero__content {
@@ -516,5 +726,29 @@ body {
 
     .ppdb-panel {
         padding: 2rem;
+    }
+
+    .ppdb-panel::after {
+        display: none;
+    }
+
+    .ppdb-panel__action {
+        justify-content: stretch;
+    }
+
+    .ppdb-panel .btn-school-primary {
+        width: 100%;
+    }
+
+    .footer-map {
+        height: 260px;
+    }
+
+    .footer-map-panel h3 {
+        font-size: 1.25rem;
+    }
+
+    .footer-map-action {
+        width: 100%;
     }
 }

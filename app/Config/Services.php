@@ -2,6 +2,7 @@
 
 namespace Config;
 
+use App\Services\PermissionService;
 use CodeIgniter\Config\BaseService;
 
 /**
@@ -19,6 +20,15 @@ use CodeIgniter\Config\BaseService;
  */
 class Services extends BaseService
 {
+    public static function permissions(bool $getShared = true): PermissionService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('permissions');
+        }
+
+        return new PermissionService();
+    }
+
     /*
      * public static function example($getShared = true)
      * {

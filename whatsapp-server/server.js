@@ -27,6 +27,9 @@ let latestQr = null;
 let status = 'loading';
 let connectedNumber = null;
 let isStarting = false;
+let startPromise = null;
+let destroyPromise = null;
+let restartPromise = null;
 let supportStore = loadSupportStore();
 
 const chromePath = [
@@ -172,191 +175,292 @@ function createClient() {
   });
 }
 
-async function startClient() {
-  if (isStarting) {
-    return;
+async function startClient(options = {}) {
+  const force = Boolean(options.force);
+
+  if (startPromise) {
+    return startPromise;
   }
 
-  isStarting = true;
-  latestQr = null;
-  status = 'loading';
-  connectedNumber = null;
-  emitStatus();
-  log('Starting WhatsApp client');
-
-  client = createClient();
-
-  const loadingTimer = setTimeout(() => {
-    if (status === 'loading') {
-      io.emit('wa:error', {
-        message: 'WhatsApp Web masih loading. Cek koneksi internet, Chrome, atau coba klik Refresh.',
-      });
-      log('WhatsApp Web is still loading after 60 seconds');
-    }
-  }, 60000);
-
-  client.on('qr', async (qr) => {
-    clearTimeout(loadingTimer);
-    latestQr = await QRCode.toDataURL(qr, {
-      margin: 1,
-      scale: 8,
-      width: 320,
-    });
-    status = 'qr';
-    log('QR received');
+  if (client && !force && ['loading', 'qr', 'authenticated', 'ready'].includes(status)) {
     emitStatus();
-    io.emit('wa:qr', { image: latestQr });
-  });
+    return Promise.resolve();
+  }
 
-  client.on('ready', () => {
-    clearTimeout(loadingTimer);
+  startPromise = (async () => {
+    isStarting = true;
     latestQr = null;
-    status = 'ready';
-    connectedNumber = client.info?.wid?.user || null;
-    log(`WhatsApp client ready${connectedNumber ? `: ${connectedNumber}` : ''}`);
-    emitStatus();
-  });
-
-  client.on('authenticated', () => {
-    status = 'authenticated';
-    log('WhatsApp authenticated');
-    emitStatus();
-  });
-
-  client.on('auth_failure', (message) => {
-    clearTimeout(loadingTimer);
-    status = 'auth_failure';
-    log(`Authentication failed: ${message}`);
-    io.emit('wa:error', { message: `Autentikasi gagal: ${message}` });
-    emitStatus();
-  });
-
-  client.on('disconnected', (reason) => {
-    clearTimeout(loadingTimer);
-    latestQr = null;
-    status = 'disconnected';
+    status = 'loading';
     connectedNumber = null;
-    log(`WhatsApp disconnected: ${reason}`);
-    io.emit('wa:error', { message: `WhatsApp terputus: ${reason}` });
     emitStatus();
-  });
+    log('Starting WhatsApp client');
 
-  client.on('message', async (message) => {
-    if (message.fromMe || message.from.endsWith('@g.us')) {
-      return;
-    }
+    client = createClient();
 
-    try {
-      const incoming = await logIncomingMessage(message);
-      const openTicket = await getOpenTicket(incoming.chat_id);
+    const activeClient = client;
+    const loadingTimer = setTimeout(() => {
+      if (client === activeClient && status === 'loading') {
+        io.emit('wa:error', {
+          message: 'WhatsApp Web masih loading. Cek koneksi internet, Chrome, atau coba klik Refresh.',
+        });
+        log('WhatsApp Web is still loading after 60 seconds');
+      }
+    }, 60000);
 
-      if (openTicket) {
-        const reply = 'Pesan tambahan Anda sudah diteruskan ke admin sekolah. Mohon tunggu balasan admin.';
+    activeClient.on('qr', async (qr) => {
+      if (client !== activeClient) {
+        return;
+      }
+
+      clearTimeout(loadingTimer);
+      latestQr = await QRCode.toDataURL(qr, {
+        margin: 1,
+        scale: 8,
+        width: 320,
+      });
+      status = 'qr';
+      log('QR received');
+      emitStatus();
+      io.emit('wa:qr', { image: latestQr });
+    });
+
+    activeClient.on('ready', () => {
+      if (client !== activeClient) {
+        return;
+      }
+
+      clearTimeout(loadingTimer);
+      latestQr = null;
+      status = 'ready';
+      connectedNumber = activeClient.info?.wid?.user || null;
+      log(`WhatsApp client ready${connectedNumber ? `: ${connectedNumber}` : ''}`);
+      emitStatus();
+    });
+
+    activeClient.on('authenticated', () => {
+      if (client !== activeClient) {
+        return;
+      }
+
+      status = 'authenticated';
+      log('WhatsApp authenticated');
+      emitStatus();
+    });
+
+    activeClient.on('auth_failure', (message) => {
+      if (client !== activeClient) {
+        return;
+      }
+
+      clearTimeout(loadingTimer);
+      status = 'auth_failure';
+      log(`Authentication failed: ${message}`);
+      io.emit('wa:error', { message: `Autentikasi gagal: ${message}` });
+      emitStatus();
+    });
+
+    activeClient.on('disconnected', (reason) => {
+      if (client !== activeClient) {
+        return;
+      }
+
+      clearTimeout(loadingTimer);
+      latestQr = null;
+      status = 'disconnected';
+      connectedNumber = null;
+      log(`WhatsApp disconnected: ${reason}`);
+      io.emit('wa:error', { message: `WhatsApp terputus: ${reason}` });
+      emitStatus();
+    });
+
+    activeClient.on('message', async (message) => {
+      if (client !== activeClient || message.fromMe || message.from.endsWith('@g.us')) {
+        return;
+      }
+
+      const messageText = String(message.body || '').trim();
+
+      if (messageText === '') {
+        log(`Skipped empty WhatsApp message from ${message.from}`);
+        return;
+      }
+
+      try {
+        const incoming = await logIncomingMessage(message);
+        const openTicket = await getOpenTicket(incoming.chat_id);
+
+        if (openTicket) {
+          const reply = 'Pesan tambahan Anda sudah diteruskan ke admin sekolah. Mohon tunggu balasan admin.';
+          await message.reply(reply);
+          await logOutgoingMessage({
+            chat_id: incoming.chat_id,
+            sender_type: 'bot',
+            message: reply,
+            user_message_id: incoming.message_id,
+            chatbot_understood: 0,
+            needs_cs: 1,
+            is_training_candidate: 1,
+          });
+          io.emit('support:changed', openTicket);
+          log(`Forwarded message to open ticket ${openTicket.id}`);
+          return;
+        }
+
+        const session = supportStore.sessions[message.from] || {};
+
+        if (session.handoffOffered && wantsCustomerService(messageText)) {
+          await createSupportTicket(
+            session.chatId || incoming.chat_id,
+            session.lastUserMessageId || incoming.message_id
+          );
+
+          supportStore.sessions[message.from] = {
+            handoffOffered: false,
+            waitingAdmin: true,
+          };
+          saveSupportStore();
+
+          const reply = 'Baik, Anda sudah terhubung dengan admin sekolah. Mohon tunggu balasan admin.';
+          await message.reply(reply);
+          await logOutgoingMessage({
+            chat_id: incoming.chat_id,
+            sender_type: 'bot',
+            message: reply,
+            user_message_id: incoming.message_id,
+            chatbot_understood: 0,
+            needs_cs: 1,
+            is_training_candidate: 1,
+          });
+          log(`Created support ticket for ${message.from}`);
+          return;
+        }
+
+        const response = await fetch(CHATBOT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            wa_number: message.from,
+            message: messageText,
+          }),
+        });
+        const data = await response.json();
+        const reply = data?.choices?.[0]?.message?.content || 'Maaf, chatbot belum bisa menjawab pesan ini.';
+        const understood = !isCustomerServiceOffer(reply);
+
         await message.reply(reply);
         await logOutgoingMessage({
           chat_id: incoming.chat_id,
           sender_type: 'bot',
           message: reply,
           user_message_id: incoming.message_id,
-          chatbot_understood: 0,
-          needs_cs: 1,
-          is_training_candidate: 1,
+          chatbot_understood: understood ? 1 : 0,
+          needs_cs: understood ? 0 : 1,
+          is_training_candidate: understood ? 0 : 1,
         });
-        io.emit('support:changed', openTicket);
-        log(`Forwarded message to open ticket ${openTicket.id}`);
-        return;
-      }
-
-      const session = supportStore.sessions[message.from] || {};
-
-      if (session.handoffOffered && wantsCustomerService(message.body)) {
-        await createSupportTicket(
-          session.chatId || incoming.chat_id,
-          session.lastUserMessageId || incoming.message_id
-        );
-
         supportStore.sessions[message.from] = {
-          handoffOffered: false,
-          waitingAdmin: true,
+          handoffOffered: !understood,
+          chatId: incoming.chat_id,
+          lastUserMessageId: incoming.message_id,
+          lastUserMessage: messageText,
+          lastUserAt: nowIso(),
+          lastBotMessage: reply,
+          lastBotAt: nowIso(),
         };
         saveSupportStore();
+        log(`Replied to ${message.from}`);
+      } catch (error) {
+        log(`Chatbot request failed: ${error.message}`);
+        io.emit('wa:error', { message: `Chatbot error: ${error.message}` });
+      }
+    });
 
-        const reply = 'Baik, Anda sudah terhubung dengan admin sekolah. Mohon tunggu balasan admin.';
-        await message.reply(reply);
-        await logOutgoingMessage({
-          chat_id: incoming.chat_id,
-          sender_type: 'bot',
-          message: reply,
-          user_message_id: incoming.message_id,
-          chatbot_understood: 0,
-          needs_cs: 1,
-          is_training_candidate: 1,
-        });
-        log(`Created support ticket for ${message.from}`);
-        return;
+    try {
+      await activeClient.initialize();
+    } catch (error) {
+      clearTimeout(loadingTimer);
+      status = 'error';
+      log(`Initialize error: ${error.message}`);
+      io.emit('wa:error', { message: error.message });
+
+      if (client === activeClient) {
+        client = null;
       }
 
-      const response = await fetch(CHATBOT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: message.body }),
-      });
-      const data = await response.json();
-      const reply = data?.choices?.[0]?.message?.content || 'Maaf, chatbot belum bisa menjawab pesan ini.';
-      const understood = !isCustomerServiceOffer(reply);
+      try {
+        await activeClient.destroy();
+      } catch (destroyError) {
+        log(`Cleanup after initialize error failed: ${destroyError.message}`);
+      }
 
-      await message.reply(reply);
-      await logOutgoingMessage({
-        chat_id: incoming.chat_id,
-        sender_type: 'bot',
-        message: reply,
-        user_message_id: incoming.message_id,
-        chatbot_understood: understood ? 1 : 0,
-        needs_cs: understood ? 0 : 1,
-        is_training_candidate: understood ? 0 : 1,
-      });
-      supportStore.sessions[message.from] = {
-        handoffOffered: !understood,
-        chatId: incoming.chat_id,
-        lastUserMessageId: incoming.message_id,
-        lastUserMessage: message.body,
-        lastUserAt: nowIso(),
-        lastBotMessage: reply,
-        lastBotAt: nowIso(),
-      };
-      saveSupportStore();
-      log(`Replied to ${message.from}`);
-    } catch (error) {
-      log(`Chatbot request failed: ${error.message}`);
-      io.emit('wa:error', { message: `Chatbot error: ${error.message}` });
+      emitStatus();
+    } finally {
+      isStarting = false;
+      startPromise = null;
     }
-  });
+  })();
 
-  try {
-    await client.initialize();
-  } catch (error) {
-    clearTimeout(loadingTimer);
-    status = 'error';
-    log(`Initialize error: ${error.message}`);
-    io.emit('wa:error', { message: error.message });
-    emitStatus();
-  } finally {
-    isStarting = false;
-  }
+  return startPromise;
 }
 
 async function destroyClient() {
-  if (!client) {
-    return;
+  if (destroyPromise) {
+    return destroyPromise;
   }
+
+  if (!client) {
+    return Promise.resolve();
+  }
+
+  const currentClient = client;
+  client = null;
+  latestQr = null;
+  connectedNumber = null;
+
+  destroyPromise = (async () => {
+    try {
+      await currentClient.destroy();
+    } catch (error) {
+      io.emit('wa:error', { message: error.message });
+    } finally {
+      destroyPromise = null;
+    }
+  })();
+
+  return destroyPromise;
+}
+
+async function restartClient() {
+  if (restartPromise) {
+    return restartPromise;
+  }
+
+  restartPromise = (async () => {
+    if (status === 'ready') {
+      emitStatus();
+      return {
+        ok: true,
+        skipped: true,
+        message: 'WhatsApp sudah terhubung. Restart dilewati supaya session tidak dobel.',
+      };
+    }
+
+    await destroyClient();
+    status = 'loading';
+    emitStatus();
+    await startClient({ force: true });
+
+    return {
+      ok: true,
+      skipped: false,
+      message: 'WhatsApp client direstart.',
+    };
+  })();
 
   try {
-    await client.destroy();
-  } catch (error) {
-    io.emit('wa:error', { message: error.message });
+    return await restartPromise;
+  } finally {
+    restartPromise = null;
   }
-
-  client = null;
 }
 
 app.get('/api/status', (req, res) => {
@@ -368,9 +472,8 @@ app.get('/api/status', (req, res) => {
 });
 
 app.post('/api/restart', async (req, res) => {
-  await destroyClient();
-  await startClient();
-  res.json({ ok: true });
+  const result = await restartClient();
+  res.json(result);
 });
 
 app.post('/api/logout', async (req, res) => {

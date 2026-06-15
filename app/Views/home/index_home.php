@@ -157,8 +157,10 @@
                         <h2 class="fw-bold mb-3"><?= esc($settings['spmb_title'] ?? '') ?></h2>
                         <p class="mb-0"><?= esc($settings['spmb_text'] ?? '') ?></p>
                     </div>
-                    <div class="col-lg-4 text-lg-end position-relative">
-                        <a href="#kontak" class="btn btn-school-primary">Hubungi Sekolah</a>
+                    <div class="col-lg-4 text-lg-end position-relative ppdb-panel__action">
+                        <button class="btn btn-school-primary" type="button" data-open-chatbot>
+                            Tanya Chatbot
+                        </button>
                     </div>
                 </div>
             </div>

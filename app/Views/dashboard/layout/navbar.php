@@ -9,7 +9,10 @@
                         aria-label="Toggle sidebar">
                         <img src="<?= base_url('assets/images/logo-yapas.png') ?>" alt="Logo Yapas" />
                     </button>
-                    <a class="admin-brand-text" href="<?= site_url('dashboard') ?>">Admin SPMB</a>
+                    <a class="admin-brand-text" href="<?= site_url('dashboard') ?>">
+                        <img class="admin-brand-mobile-logo" src="<?= base_url('assets/images/logo-yapas.png') ?>" alt="Logo Yapas" />
+                        <span>Admin SPMB</span>
+                    </a>
                 </div>
             </div>
             <div class="navbar-menu-wrapper d-flex align-items-top">
@@ -18,7 +21,7 @@
                     <p class="mb-0">Kelola chatbot, WhatsApp, dan percakapan SPMB.</p>
                 </div>
                 <ul class="navbar-nav ms-auto">
-                    <li class="nav-item dropdown d-none d-lg-block user-dropdown">
+                    <li class="nav-item dropdown user-dropdown">
                         <a class="nav-link" id="UserDropdown" href="#" data-bs-toggle="dropdown" aria-expanded="false">
                             <img class="img-xs rounded-circle admin-navbar-avatar" src="<?= base_url($adminAvatar) ?>" alt="Profile image">
                         </a>

@@ -228,6 +228,8 @@ class ChatbotIntentModel extends Model
     public function trainCountVectorizerModel(?string $signature = null): array
     {
         $this->ensureSchema();
+
+        // Pelatihan model: mengambil seluruh dataset intent dan training phrase yang aktif.
         $dataset = $this->getActiveTrainingDataset();
         $signature ??= $this->getTrainingDatasetSignature();
         $vocabulary = [];
@@ -235,6 +237,7 @@ class ChatbotIntentModel extends Model
         $documentCount = 0;
         $phraseCount = 0;
 
+        // Membaca setiap intent sebagai kelas/label yang akan dikenali chatbot.
         foreach ($dataset as $intent) {
             $intentName = trim((string) ($intent['name'] ?? ''));
 
@@ -242,6 +245,7 @@ class ChatbotIntentModel extends Model
                 continue;
             }
 
+            // Menyiapkan tempat penyimpanan vektor kata untuk masing-masing intent.
             $intentVectors[$intentName] = [
                 'intent_id' => (int) ($intent['id'] ?? 0),
                 'name' => $intentName,
@@ -252,7 +256,9 @@ class ChatbotIntentModel extends Model
                 'vector' => [],
             ];
 
+            // Membaca seluruh training phrase pada intent tersebut sebagai data latih.
             foreach ($intent['training_phrases'] ?? [] as $phrase) {
+                // Training phrase diproses menjadi token hasil preprocessing.
                 $tokens = array_values(array_filter($this->vectorizeTokens((string) $phrase), fn ($token) => strlen($token) > 2));
 
                 if (!$tokens) {
@@ -264,7 +270,10 @@ class ChatbotIntentModel extends Model
                 $intentVectors[$intentName]['phrase_count']++;
 
                 foreach ($tokens as $token) {
+                    // Membentuk vocabulary dari seluruh token yang muncul pada data latih.
                     $vocabulary[$token] = true;
+
+                    // Menghitung frekuensi token pada intent untuk membentuk vektor intent.
                     $intentVectors[$intentName]['vector'][$token] = ($intentVectors[$intentName]['vector'][$token] ?? 0) + 1;
                     $intentVectors[$intentName]['token_count']++;
                 }
@@ -275,6 +284,7 @@ class ChatbotIntentModel extends Model
             }
         }
 
+        // Hasil pelatihan model berisi vocabulary, vektor setiap intent, dan statistik data latih.
         $model = [
             'algorithm' => 'count_vectorizer_cosine',
             'signature' => $signature,
@@ -998,6 +1008,7 @@ class ChatbotIntentModel extends Model
 
     private function trainNaiveBayesSamples(array $samples): array
     {
+        // Pembentukan model Multinomial Naive Bayes secara manual.
         $classes = [];
         $vocabulary = [];
         $totalDocuments = 0;
@@ -1018,10 +1029,12 @@ class ChatbotIntentModel extends Model
                 ];
             }
 
+            // Menghitung jumlah dokumen pada setiap kelas/intent untuk probabilitas prior.
             $classes[$intent]['document_count']++;
             $totalDocuments++;
 
             foreach ($tokens as $token) {
+                // Menghitung frekuensi kemunculan token pada setiap kelas/intent.
                 $classes[$intent]['tokens'][$token] = ($classes[$intent]['tokens'][$token] ?? 0) + 1;
                 $classes[$intent]['token_count']++;
                 $vocabulary[$token] = true;
@@ -1052,6 +1065,7 @@ class ChatbotIntentModel extends Model
         $bestMatchedTokens = 0;
 
         foreach ($classes as $intent => $classData) {
+            // Prior probability: probabilitas awal kelas dihitung dari frekuensi dokumen kelas.
             $score = log($classData['document_count'] / $totalDocuments);
             $matchedTokens = 0;
 
@@ -1062,6 +1076,7 @@ class ChatbotIntentModel extends Model
                     $matchedTokens++;
                 }
 
+                // Laplace smoothing: setara alpha = 1 untuk mencegah probabilitas nol.
                 $score += log(($tokenFrequency + 1) / ($classData['token_count'] + $vocabularySize));
             }
 

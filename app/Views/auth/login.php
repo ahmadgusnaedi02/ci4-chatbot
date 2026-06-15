@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login Admin Sekolah</title>
+    <link rel="shortcut icon" href="<?= base_url('assets/images/logo-yapas.png') ?>">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -35,6 +36,7 @@
         .login-visual::after {
             content: "";
             position: absolute;
+            z-index: 0;
             right: -90px;
             bottom: -130px;
             width: 340px;
@@ -43,8 +45,13 @@
             clip-path: polygon(50% 0, 100% 100%, 0 100%);
         }
 
-        .login-visual h1 {
+        .login-visual-copy {
             max-width: 620px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .login-visual h1 {
             font-size: clamp(2.4rem, 4vw, 4.6rem);
             font-weight: 900;
             line-height: 1.12;
@@ -64,16 +71,24 @@
         }
 
         .brand-mark {
-            width: 58px;
-            height: 58px;
+            width: 64px;
+            height: 64px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            border-radius: 8px;
+            border: 1px solid #d7e8f3;
+            border-radius: 50%;
             background: #e9f4fb;
-            color: #104f86;
-            font-size: 1.7rem;
+            box-shadow: 0 10px 24px rgba(16, 79, 134, 0.12);
             margin-bottom: 1.5rem;
+            padding: 7px;
+        }
+
+        .brand-mark img {
+            display: block;
+            height: 100%;
+            object-fit: contain;
+            width: 100%;
         }
 
         .btn-login {
@@ -98,6 +113,42 @@
                 min-height: 300px;
                 padding: 2rem;
             }
+
+            .login-visual::after {
+                right: -76px;
+                bottom: -128px;
+                width: 260px;
+                height: 260px;
+            }
+
+            .login-visual h1 {
+                font-size: clamp(2rem, 8vw, 3rem);
+                max-width: min(100%, 520px);
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            .login-visual {
+                min-height: 320px;
+                padding: 2rem 1.9rem;
+            }
+
+            .login-visual::after {
+                right: -58px;
+                bottom: -92px;
+                width: 190px;
+                height: 190px;
+            }
+
+            .login-visual h1 {
+                font-size: clamp(2rem, 9.5vw, 2.45rem);
+                line-height: 1.12;
+                max-width: 290px;
+            }
+
+            .login-panel {
+                padding: 2rem 1.9rem;
+            }
         }
     </style>
 </head>
@@ -105,14 +156,16 @@
 <body>
     <main class="login-shell">
         <section class="login-visual">
-            <div class="position-relative">
+            <div class="login-visual-copy">
                 <p class="text-warning fw-bold text-uppercase mb-3">Panel Admin Sekolah</p>
                 <h1>Kelola chat, SPMB, dan layanan sekolah dari satu dashboard.</h1>
             </div>
         </section>
         <section class="login-panel">
             <div class="login-card">
-                <span class="brand-mark"><i class="fa-solid fa-graduation-cap"></i></span>
+                <span class="brand-mark">
+                    <img src="<?= base_url('assets/images/logo-yapas.png') ?>" alt="Logo SMPS Plus Fajar Sentosa">
+                </span>
                 <h2 class="fw-bold mb-2">Login Admin</h2>
                 <p class="text-muted mb-4">Masuk untuk membuka dashboard sekolah.</p>
 

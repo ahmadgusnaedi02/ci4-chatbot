@@ -12,12 +12,6 @@
                         <p class="text-muted mb-0">Hubungkan nomor WhatsApp ke chatbot melalui QR WhatsApp Web.</p>
                     </div>
                     <div class="d-flex gap-2 mt-3 mt-sm-0">
-                        <button class="btn btn-primary btn-lg" type="button" id="startServerBtn">
-                            <i class="mdi mdi-play me-1"></i> Start Server
-                        </button>
-                        <button class="btn btn-outline-danger btn-lg" type="button" id="stopServerBtn">
-                            <i class="mdi mdi-stop me-1"></i> Stop Server
-                        </button>
                         <button class="btn btn-outline-secondary btn-lg" type="button" id="refreshQrBtn">
                             <i class="mdi mdi-refresh me-1"></i> Refresh
                         </button>
@@ -49,7 +43,7 @@
                                 </div>
 
                                 <div class="alert alert-info mt-4 mb-0" id="waMessage">
-                                    Jalankan service Node.js terlebih dahulu, lalu QR akan muncul otomatis.
+                                    Jalankan service Node.js lewat terminal terlebih dahulu, lalu QR akan muncul otomatis.
                                 </div>
                             </div>
                         </div>
@@ -145,15 +139,9 @@
         const nodeStatus = document.getElementById('nodeStatus');
         const clientStatus = document.getElementById('clientStatus');
         const connectedNumber = document.getElementById('connectedNumber');
-        const startServerBtn = document.getElementById('startServerBtn');
-        const stopServerBtn = document.getElementById('stopServerBtn');
         const refreshQrBtn = document.getElementById('refreshQrBtn');
         const logoutWaBtn = document.getElementById('logoutWaBtn');
         const serverStatusUrl = '<?= site_url('dashboard/scan-whatsapp/server-status') ?>';
-        const serverStartUrl = '<?= site_url('dashboard/scan-whatsapp/server-start') ?>';
-        const serverStopUrl = '<?= site_url('dashboard/scan-whatsapp/server-stop') ?>';
-        const csrfName = '<?= csrf_token() ?>';
-        let csrfHash = '<?= csrf_hash() ?>';
 
         function setBadge(el, text, type) {
             el.className = `badge badge-opacity-${type}`;
@@ -175,22 +163,6 @@
             qrImage.src = '';
             qrImage.classList.add('d-none');
             qrPlaceholder.classList.remove('d-none');
-        }
-
-        async function postDashboardAction(url) {
-            const body = new URLSearchParams();
-            body.append(csrfName, csrfHash);
-
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                body,
-            });
-
-            return response.json();
         }
 
         async function refreshServerStatus() {
@@ -290,38 +262,6 @@
                 await fetch('http://localhost:3001/api/logout', { method: 'POST' });
             } catch (error) {
                 setMessage('Tidak bisa menghubungi service Node.js.', 'danger');
-            }
-        });
-
-        startServerBtn.addEventListener('click', async () => {
-            startServerBtn.disabled = true;
-            setMessage('Menjalankan WhatsApp server...', 'info');
-
-            try {
-                const data = await postDashboardAction(serverStartUrl);
-                setMessage(data.message || 'Perintah start dikirim. Halaman akan dimuat ulang.', data.ok ? 'info' : 'danger');
-                setTimeout(() => window.location.reload(), 1800);
-            } catch (error) {
-                startServerBtn.disabled = false;
-                setMessage('Gagal menjalankan WhatsApp server dari dashboard.', 'danger');
-            }
-        });
-
-        stopServerBtn.addEventListener('click', async () => {
-            stopServerBtn.disabled = true;
-            setMessage('Menghentikan WhatsApp server...', 'info');
-
-            try {
-                const data = await postDashboardAction(serverStopUrl);
-                hideQr();
-                setBadge(nodeStatus, data.running ? 'Online' : 'Offline', data.running ? 'success' : 'danger');
-                setBadge(clientStatus, data.running ? 'Loading' : 'Berhenti', data.running ? 'warning' : 'danger');
-                setBadge(waStatusBadge, data.running ? 'Menunggu' : 'Offline', data.running ? 'warning' : 'danger');
-                setMessage(data.running ? 'Server masih berjalan.' : 'WhatsApp server sudah dihentikan.', data.running ? 'warning' : 'success');
-            } catch (error) {
-                setMessage('Gagal menghentikan WhatsApp server dari dashboard.', 'danger');
-            } finally {
-                stopServerBtn.disabled = false;
             }
         });
 

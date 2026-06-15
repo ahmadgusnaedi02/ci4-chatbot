@@ -7,6 +7,11 @@ whatsapp-server/.wwebjs_cache/
 
 vendor/
 
+bash.exe.stackdump
+public/assetsold/
+public/vendor/
+writable/tools/
+
 writable/cache/*
 !writable/cache/index.html
 writable/debugbar/*

@@ -180,6 +180,23 @@
                                     <input class="form-control" id="contact_email" name="contact_email" type="email"
                                         value="<?= esc(old('contact_email', $settings['contact_email'] ?? '')) ?>">
                                 </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label" for="contact_latitude">Latitude</label>
+                                    <input class="form-control" id="contact_latitude" name="contact_latitude" type="text"
+                                        value="<?= esc(old('contact_latitude', $settings['contact_latitude'] ?? '')) ?>"
+                                        placeholder="-6.200000">
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label" for="contact_longitude">Longitude</label>
+                                    <input class="form-control" id="contact_longitude" name="contact_longitude" type="text"
+                                        value="<?= esc(old('contact_longitude', $settings['contact_longitude'] ?? '')) ?>"
+                                        placeholder="106.816666">
+                                </div>
+                                <div class="col-12 mb-3">
+                                    <label class="form-label" for="contact_map_embed_url">Google Maps Embed URL</label>
+                                    <textarea class="form-control" id="contact_map_embed_url" name="contact_map_embed_url" rows="2"
+                                        placeholder="https://www.google.com/maps/embed?pb=..."><?= esc(old('contact_map_embed_url', $settings['contact_map_embed_url'] ?? '')) ?></textarea>
+                                </div>
                             </div>
 
                             <div class="row">
@@ -194,9 +211,9 @@
                                         value="<?= esc(old('instagram_url', $settings['instagram_url'] ?? '#')) ?>">
                                 </div>
                                 <div class="col-md-3 mb-3">
-                                    <label class="form-label" for="twitter_url">Twitter/X</label>
-                                    <input class="form-control" id="twitter_url" name="twitter_url" type="text"
-                                        value="<?= esc(old('twitter_url', $settings['twitter_url'] ?? '#')) ?>">
+                                    <label class="form-label" for="tiktok_url">TikTok</label>
+                                    <input class="form-control" id="tiktok_url" name="tiktok_url" type="text"
+                                        value="<?= esc(old('tiktok_url', $settings['tiktok_url'] ?? '#')) ?>">
                                 </div>
                                 <div class="col-md-3 mb-3">
                                     <label class="form-label" for="youtube_url">YouTube</label>

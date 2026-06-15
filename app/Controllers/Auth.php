@@ -27,6 +27,8 @@ class Auth extends BaseController
             $db->query('ALTER TABLE admin_users ADD avatar_url VARCHAR(255) NULL AFTER email');
         }
 
+        service('permissions')->ensureSchema();
+
         $count = (int) $db->table('admin_users')->countAllResults();
 
         if ($count === 0) {
@@ -35,7 +37,7 @@ class Auth extends BaseController
                 'name' => 'Admin Sekolah',
                 'email' => 'admin@sekolah.test',
                 'password_hash' => password_hash('admin123', PASSWORD_DEFAULT),
-                'role' => 'admin',
+                'role' => 'super_admin',
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
@@ -80,7 +82,7 @@ class Auth extends BaseController
             'admin_name' => $admin['name'],
             'admin_email' => $admin['email'],
             'admin_avatar' => $admin['avatar_url'] ?? null,
-            'admin_role' => $admin['role'],
+            'admin_role' => service('permissions')->normalizeRole((string) $admin['role']),
         ]);
 
         return redirect()->to(site_url('dashboard'));

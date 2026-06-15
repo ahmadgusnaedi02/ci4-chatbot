@@ -13,3 +13,17 @@
  *
  * @see: https://codeigniter.com/user_guide/extending/common.html
  */
+
+if (!function_exists('admin_can')) {
+    function admin_can(string $menuKey, string $action = 'view'): bool
+    {
+        return service('permissions')->can($menuKey, $action);
+    }
+}
+
+if (!function_exists('admin_sidebar_menus')) {
+    function admin_sidebar_menus(): array
+    {
+        return service('permissions')->getVisibleSidebarMenus();
+    }
+}

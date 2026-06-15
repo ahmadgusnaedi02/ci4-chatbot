@@ -2,6 +2,12 @@
 <?= $this->include('dashboard/layout/navbar') ?>
 <?= $this->include('dashboard/layout/sidebar') ?>
 
+<?php
+$canCreatePhrase = admin_can('training_phrases', 'create');
+$canUpdatePhrase = admin_can('training_phrases', 'update');
+$canDeletePhrase = admin_can('training_phrases', 'delete');
+?>
+
 <div class="main-panel">
     <div class="content-wrapper admin-content">
         <div class="admin-page-head">
@@ -10,20 +16,22 @@
                 <h2 class="admin-page-title mb-2">Training Phrases</h2>
                 <p class="admin-page-subtitle mb-0">Tambah contoh kalimat pertanyaan, lalu hubungkan ke intent yang sesuai.</p>
             </div>
-            <div class="d-flex flex-wrap gap-2 mt-3 mt-md-0">
-                <form action="<?= site_url('dashboard/training-phrases/evaluate-naive-bayes') ?>" method="post">
-                    <?= csrf_field() ?>
-                    <button class="btn btn-outline-primary" type="submit">
-                        <i class="mdi mdi-chart-line me-1"></i> Uji Naive Bayes
-                    </button>
-                </form>
-                <form action="<?= site_url('dashboard/training-phrases/retrain') ?>" method="post">
-                    <?= csrf_field() ?>
-                    <button class="btn admin-primary-btn" type="submit">
-                        <i class="mdi mdi-refresh me-1"></i> Training Ulang
-                    </button>
-                </form>
-            </div>
+            <?php if ($canUpdatePhrase): ?>
+                <div class="d-flex flex-wrap gap-2 mt-3 mt-md-0">
+                    <form action="<?= site_url('dashboard/training-phrases/evaluate-naive-bayes') ?>" method="post">
+                        <?= csrf_field() ?>
+                        <button class="btn btn-outline-primary" type="submit">
+                            <i class="mdi mdi-chart-line me-1"></i> Uji Naive Bayes
+                        </button>
+                    </form>
+                    <form action="<?= site_url('dashboard/training-phrases/retrain') ?>" method="post">
+                        <?= csrf_field() ?>
+                        <button class="btn admin-primary-btn" type="submit">
+                            <i class="mdi mdi-refresh me-1"></i> Training Ulang
+                        </button>
+                    </form>
+                </div>
+            <?php endif; ?>
         </div>
 
         <?php if (session('success')): ?>
@@ -42,7 +50,18 @@
             $perClass = $naiveBayesEvaluation['per_class'] ?? [];
             $confusionMatrix = $naiveBayesEvaluation['confusion_matrix'] ?? [];
             $confusionLabels = array_keys($confusionMatrix);
+            $perClassChartData = [
+                'labels' => array_keys($perClass),
+                'precision' => array_map(static fn (array $metrics): float => round((float) ($metrics['precision'] ?? 0), 4), array_values($perClass)),
+                'recall' => array_map(static fn (array $metrics): float => round((float) ($metrics['recall'] ?? 0), 4), array_values($perClass)),
+                'f1' => array_map(static fn (array $metrics): float => round((float) ($metrics['f1'] ?? 0), 4), array_values($perClass)),
+            ];
+            $accuracyChartData = [
+                'labels' => ['Accuracy'],
+                'accuracy' => [round((float) ($nbSummary['accuracy'] ?? 0), 4)],
+            ];
             $totalTraining = array_sum(array_map(static fn (array $item): int => (int) ($item['training_count'] ?? 0), $trainingSummary));
+            $maxTraining = $trainingSummary ? max(array_map(static fn (array $item): int => (int) ($item['training_count'] ?? 0), $trainingSummary)) : 0;
             $formatPercent = static fn ($value): string => number_format(((float) $value) * 100, 2) . '%';
         ?>
         <?php if ($naiveBayesEvaluation): ?>
@@ -104,7 +123,7 @@
                         <?php foreach ($trainingSummary as $summary): ?>
                             <?php
                                 $count = (int) ($summary['training_count'] ?? 0);
-                                $percent = $totalTraining > 0 ? max(3, (int) round(($count / $totalTraining) * 100)) : 3;
+                                $percent = $maxTraining > 0 ? max(3, (int) round(($count / $maxTraining) * 100)) : 3;
                             ?>
                             <div class="training-chart-row">
                                 <span class="training-chart-label"><?= esc($summary['name']) ?></span>
@@ -119,9 +138,10 @@
             </div>
         </div>
 
-        <div class="card admin-card mb-4">
-            <div class="card-body">
-                <form class="row g-3 align-items-end" action="<?= site_url('dashboard/training-phrases') ?>" method="post">
+        <?php if ($canCreatePhrase): ?>
+            <div class="card admin-card mb-4">
+                <div class="card-body">
+                    <form class="row g-3 align-items-end" action="<?= site_url('dashboard/training-phrases') ?>" method="post">
                     <?= csrf_field() ?>
                     <div class="col-lg-3">
                         <label class="form-label" for="intent_id">Intent</label>
@@ -145,9 +165,10 @@
                             <i class="mdi mdi-plus"></i>
                         </button>
                     </div>
-                </form>
+                    </form>
+                </div>
             </div>
-        </div>
+        <?php endif; ?>
 
         <div class="card admin-card">
             <div class="card-body">
@@ -194,22 +215,30 @@
                                     </td>
                                     <td><?= esc($item['source'] ?? 'manual') ?></td>
                                     <td>
+                                        <?php if ($canUpdatePhrase || $canDeletePhrase): ?>
                                         <div class="dropdown admin-row-actions">
                                             <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                                 Aksi
                                             </button>
                                             <div class="dropdown-menu dropdown-menu-end">
-                                                <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#phrase-edit-<?= esc((string) $item['id']) ?>">
-                                                    <i class="mdi mdi-pencil me-2"></i>Edit
-                                                </button>
-                                                <form action="<?= site_url('dashboard/training-phrases/' . $item['id'] . '/delete') ?>" method="post" data-confirm="Hapus training phrase ini?">
-                                                    <?= csrf_field() ?>
-                                                    <button class="dropdown-item text-danger" type="submit">
-                                                        <i class="mdi mdi-delete me-2"></i>Hapus
+                                                <?php if ($canUpdatePhrase): ?>
+                                                    <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#phrase-edit-<?= esc((string) $item['id']) ?>">
+                                                        <i class="mdi mdi-pencil me-2"></i>Edit
                                                     </button>
-                                                </form>
+                                                <?php endif; ?>
+                                                <?php if ($canDeletePhrase): ?>
+                                                    <form action="<?= site_url('dashboard/training-phrases/' . $item['id'] . '/delete') ?>" method="post" data-confirm="Hapus training phrase ini?">
+                                                        <?= csrf_field() ?>
+                                                        <button class="dropdown-item text-danger" type="submit">
+                                                            <i class="mdi mdi-delete me-2"></i>Hapus
+                                                        </button>
+                                                    </form>
+                                                <?php endif; ?>
                                             </div>
                                         </div>
+                                        <?php else: ?>
+                                            <span class="text-muted">-</span>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -222,6 +251,7 @@
                     </table>
                 </div>
 
+                <?php if ($canUpdatePhrase): ?>
                 <?php foreach ($items as $item): ?>
                     <div class="modal fade" id="phrase-edit-<?= esc((string) $item['id']) ?>" tabindex="-1" aria-labelledby="phrase-edit-label-<?= esc((string) $item['id']) ?>" aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered">
@@ -261,6 +291,7 @@
                         </div>
                     </div>
                 <?php endforeach; ?>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -310,7 +341,17 @@
                             </div>
                         </div>
 
+                        <h5 class="mb-3">Diagram Akurasi Model</h5>
+                        <div class="nb-accuracy-chart mb-4">
+                            <canvas id="naiveBayesAccuracyChart"></canvas>
+                        </div>
+
                         <h5 class="mb-3">Metrik Per Intent</h5>
+                        <?php if (!empty($perClass)): ?>
+                            <div class="nb-per-class-chart mb-4">
+                                <canvas id="naiveBayesPerClassChart"></canvas>
+                            </div>
+                        <?php endif; ?>
                         <div class="table-responsive mb-4">
                             <table class="table admin-kb-table align-middle mb-0">
                                 <thead>
@@ -536,6 +577,30 @@
             font-size: 18px;
         }
 
+        .nb-per-class-chart {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            height: 360px;
+            padding: 16px;
+            position: relative;
+        }
+
+        .nb-accuracy-chart {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            height: 300px;
+            padding: 16px;
+            position: relative;
+        }
+
+        .nb-accuracy-chart canvas,
+        .nb-per-class-chart canvas {
+            height: 100% !important;
+            width: 100% !important;
+        }
+
         .training-chart {
             display: grid;
             gap: 10px;
@@ -607,5 +672,172 @@
         </script>
     <?php endif; ?>
 
-    <?= $this->include('dashboard/layout/footer') ?>
+    <?php if ($naiveBayesEvaluation): ?>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                var accuracyData = <?= json_encode($accuracyChartData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
+                var chartData = <?= json_encode($perClassChartData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
+                var modalElement = document.getElementById('naive-bayes-result-modal');
+                var accuracyChart = null;
+                var perClassChart = null;
 
+                function renderAccuracyChart() {
+                    var canvas = document.getElementById('naiveBayesAccuracyChart');
+
+                    if (!canvas || !window.Chart || accuracyChart) {
+                        return;
+                    }
+
+                    accuracyChart = new Chart(canvas, {
+                        type: 'bar',
+                        data: {
+                            labels: accuracyData.labels,
+                            datasets: [
+                                {
+                                    label: 'Accuracy',
+                                    data: accuracyData.accuracy,
+                                    backgroundColor: '#2f75b5',
+                                    borderRadius: 4,
+                                    maxBarThickness: 520
+                                }
+                            ]
+                        },
+                        options: {
+                            maintainAspectRatio: false,
+                            responsive: true,
+                            scales: {
+                                x: {
+                                    title: {
+                                        display: false
+                                    }
+                                },
+                                y: {
+                                    beginAtZero: true,
+                                    max: 1,
+                                    ticks: {
+                                        callback: function (value) {
+                                            return Math.round(value * 100) + '%';
+                                        }
+                                    },
+                                    title: {
+                                        display: true,
+                                        text: 'Accuracy'
+                                    }
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    display: false
+                                },
+                                title: {
+                                    display: true,
+                                    text: (accuracyData.accuracy[0] * 100).toFixed(2) + '%'
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function (context) {
+                                            return 'Accuracy: ' + (context.parsed.y * 100).toFixed(2) + '%';
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                function renderPerClassChart() {
+                    var canvas = document.getElementById('naiveBayesPerClassChart');
+
+                    if (!canvas || !window.Chart || perClassChart || !chartData.labels.length) {
+                        return;
+                    }
+
+                    perClassChart = new Chart(canvas, {
+                        type: 'bar',
+                        data: {
+                            labels: chartData.labels,
+                            datasets: [
+                                {
+                                    label: 'Precision',
+                                    data: chartData.precision,
+                                    backgroundColor: '#104f86',
+                                    borderRadius: 4
+                                },
+                                {
+                                    label: 'Recall',
+                                    data: chartData.recall,
+                                    backgroundColor: '#2f75b5',
+                                    borderRadius: 4
+                                },
+                                {
+                                    label: 'F1-score',
+                                    data: chartData.f1,
+                                    backgroundColor: '#5f9ea0',
+                                    borderRadius: 4
+                                }
+                            ]
+                        },
+                        options: {
+                            maintainAspectRatio: false,
+                            responsive: true,
+                            scales: {
+                                x: {
+                                    ticks: {
+                                        autoSkip: false,
+                                        maxRotation: 45,
+                                        minRotation: 45
+                                    },
+                                    title: {
+                                        display: true,
+                                        text: 'Intent'
+                                    }
+                                },
+                                y: {
+                                    beginAtZero: true,
+                                    max: 1,
+                                    ticks: {
+                                        callback: function (value) {
+                                            return Math.round(value * 100) + '%';
+                                        }
+                                    },
+                                    title: {
+                                        display: true,
+                                        text: 'Score'
+                                    }
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    position: 'top',
+                                    align: 'end'
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function (context) {
+                                            return context.dataset.label + ': ' + (context.parsed.y * 100).toFixed(2) + '%';
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                if (modalElement) {
+                    modalElement.addEventListener('shown.bs.modal', function () {
+                        renderAccuracyChart();
+                        renderPerClassChart();
+                    });
+
+                    if (modalElement.classList.contains('show')) {
+                        setTimeout(function () {
+                            renderAccuracyChart();
+                            renderPerClassChart();
+                        }, 150);
+                    }
+                }
+            });
+        </script>
+    <?php endif; ?>
+
+    <?= $this->include('dashboard/layout/footer') ?>

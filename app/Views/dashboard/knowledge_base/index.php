@@ -2,6 +2,12 @@
 <?= $this->include('dashboard/layout/navbar') ?>
 <?= $this->include('dashboard/layout/sidebar') ?>
 
+<?php
+$canCreateIntent = admin_can('intents', 'create');
+$canUpdateIntent = admin_can('intents', 'update');
+$canDeleteIntent = admin_can('intents', 'delete');
+?>
+
 <div class="main-panel">
     <div class="content-wrapper admin-content">
         <div class="admin-page-head">
@@ -10,9 +16,11 @@
                 <h2 class="admin-page-title mb-2">Intent Dataset</h2>
                 <p class="admin-page-subtitle mb-0">Kelola intent, response, training phrase, dan keyword dari tabel dataset yang terpisah.</p>
             </div>
-            <a class="btn admin-primary-btn mt-3 mt-md-0" href="<?= site_url('dashboard/knowledge-base/create') ?>">
-                <i class="mdi mdi-plus me-1"></i> Tambah Intent
-            </a>
+            <?php if ($canCreateIntent): ?>
+                <a class="btn admin-primary-btn mt-3 mt-md-0" href="<?= site_url('dashboard/knowledge-base/create') ?>">
+                    <i class="mdi mdi-plus me-1"></i> Tambah Intent
+                </a>
+            <?php endif; ?>
         </div>
 
         <?php if (session('success')): ?>
@@ -107,24 +115,32 @@
                                     <td><span class="badge badge-opacity-<?= $badgeClass ?>"><?= esc(ucfirst($statusName)) ?></span></td>
                                     <td><?= esc((string) ($item['priority'] ?? 0)) ?></td>
                                     <td>
-                                        <div class="d-flex flex-wrap gap-2">
-                                            <a class="btn btn-outline-primary btn-sm" href="<?= site_url('dashboard/knowledge-base/' . $item['id'] . '/edit') ?>">
-                                                <i class="mdi mdi-pencil"></i>
-                                            </a>
-                                            <form action="<?= site_url('dashboard/knowledge-base/' . $item['id'] . '/toggle') ?>" method="post">
-                                                <?= csrf_field() ?>
-                                                <button class="btn btn-outline-secondary btn-sm" type="submit">
-                                                    <?= $statusName === 'active' ? 'Nonaktif' : 'Aktifkan' ?>
-                                                </button>
-                                            </form>
-                                            <form action="<?= site_url('dashboard/knowledge-base/' . $item['id'] . '/delete') ?>" method="post"
-                                                data-confirm="Hapus intent dataset ini?">
-                                                <?= csrf_field() ?>
-                                                <button class="btn btn-outline-danger btn-sm" type="submit">
-                                                    <i class="mdi mdi-delete"></i>
-                                                </button>
-                                            </form>
-                                        </div>
+                                        <?php if ($canUpdateIntent || $canDeleteIntent): ?>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                <?php if ($canUpdateIntent): ?>
+                                                    <a class="btn btn-outline-primary btn-sm" href="<?= site_url('dashboard/knowledge-base/' . $item['id'] . '/edit') ?>">
+                                                        <i class="mdi mdi-pencil"></i>
+                                                    </a>
+                                                    <form action="<?= site_url('dashboard/knowledge-base/' . $item['id'] . '/toggle') ?>" method="post">
+                                                        <?= csrf_field() ?>
+                                                        <button class="btn btn-outline-secondary btn-sm" type="submit">
+                                                            <?= $statusName === 'active' ? 'Nonaktif' : 'Aktifkan' ?>
+                                                        </button>
+                                                    </form>
+                                                <?php endif; ?>
+                                                <?php if ($canDeleteIntent): ?>
+                                                    <form action="<?= site_url('dashboard/knowledge-base/' . $item['id'] . '/delete') ?>" method="post"
+                                                        data-confirm="Hapus intent dataset ini?">
+                                                        <?= csrf_field() ?>
+                                                        <button class="btn btn-outline-danger btn-sm" type="submit">
+                                                            <i class="mdi mdi-delete"></i>
+                                                        </button>
+                                                    </form>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php else: ?>
+                                            <span class="text-muted">-</span>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

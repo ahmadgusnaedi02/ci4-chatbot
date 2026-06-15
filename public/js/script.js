@@ -256,6 +256,17 @@ chatbotToggler.addEventListener('click', () => {
     document.body.classList.toggle('show-chatbot');
 });
 
+document.querySelectorAll('[data-open-chatbot]').forEach((button) => {
+    button.addEventListener('click', () => {
+        document.body.classList.add('show-chatbot');
+        document.body.classList.remove('show-emoji-picker');
+
+        setTimeout(() => {
+            messageInput.focus();
+        }, 220);
+    });
+});
+
 const closeChatbotBtn = document.querySelector('#close-chatbot');
 if (closeChatbotBtn) {
     closeChatbotBtn.addEventListener('click', () => {

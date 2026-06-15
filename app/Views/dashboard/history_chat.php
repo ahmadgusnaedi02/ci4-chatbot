@@ -2,6 +2,8 @@
 <?= $this->include('dashboard/layout/navbar') ?>
 <?= $this->include('dashboard/layout/sidebar') ?>
 
+<?php $canDeleteHistory = admin_can('history_chat', 'delete'); ?>
+
 <div class="main-panel">
     <div class="content-wrapper">
         <div class="row">
@@ -81,12 +83,14 @@
                                         <p class="card-subtitle card-subtitle-dash mb-0" id="historySubtitle">Detail pesan akan tampil di sini.</p>
                                     </div>
                                     <div class="history-detail-actions">
-                                        <form id="deleteHistoryForm" action="#" method="post" data-confirm="Hapus riwayat chat ini beserta semua pesannya?">
-                                            <?= csrf_field() ?>
-                                            <button class="btn btn-outline-danger btn-sm" id="deleteHistoryBtn" type="submit" disabled>
-                                                <i class="mdi mdi-delete-outline me-1"></i> Hapus
-                                            </button>
-                                        </form>
+                                        <?php if ($canDeleteHistory): ?>
+                                            <form id="deleteHistoryForm" action="#" method="post" data-confirm="Hapus riwayat chat ini beserta semua pesannya?">
+                                                <?= csrf_field() ?>
+                                                <button class="btn btn-outline-danger btn-sm" id="deleteHistoryBtn" type="submit" disabled>
+                                                    <i class="mdi mdi-delete-outline me-1"></i> Hapus
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
                                         <span class="badge chat-badge-muted" id="historyStatus">-</span>
                                     </div>
                                 </div>
@@ -496,8 +500,10 @@
             historySubtitle.textContent = 'Detail pesan akan tampil di sini.';
             historyStatus.textContent = '-';
             historyStatus.className = 'badge chat-badge-muted';
-            deleteHistoryForm.action = '#';
-            deleteHistoryBtn.disabled = true;
+            if (deleteHistoryForm && deleteHistoryBtn) {
+                deleteHistoryForm.action = '#';
+                deleteHistoryBtn.disabled = true;
+            }
             historySummary.innerHTML = `
                 <div><span class="text-muted d-block">Total Pesan</span><strong>0</strong></div>
                 <div><span class="text-muted d-block">Kandidat Latih</span><strong>0</strong></div>
@@ -517,8 +523,10 @@
             historySubtitle.textContent = `${sourceLabel} - ${formatTime(chat.lastMessageAt || chat.updatedAt)}`;
             historyStatus.textContent = label;
             historyStatus.className = `badge ${type}`;
-            deleteHistoryForm.action = `<?= site_url('dashboard/history-chat') ?>/${chat.id}/delete`;
-            deleteHistoryBtn.disabled = false;
+            if (deleteHistoryForm && deleteHistoryBtn) {
+                deleteHistoryForm.action = `<?= site_url('dashboard/history-chat') ?>/${chat.id}/delete`;
+                deleteHistoryBtn.disabled = false;
+            }
             historySummary.innerHTML = `
                 <div><span class="text-muted d-block">Total Pesan</span><strong>${messages.length}</strong></div>
                 <div><span class="text-muted d-block">Kandidat Latih</span><strong>${trainingCount}</strong></div>

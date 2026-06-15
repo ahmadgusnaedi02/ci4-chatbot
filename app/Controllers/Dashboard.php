@@ -31,12 +31,94 @@ class Dashboard extends BaseController
         if (!$db->fieldExists('avatar_url', 'admin_users')) {
             $db->query('ALTER TABLE admin_users ADD avatar_url VARCHAR(255) NULL AFTER email');
         }
+
+        service('permissions')->ensureSchema();
     }
 
     public function index(): string
     {
         return view('dashboard/index_dashboard', $this->getDashboardSummary());
 
+    }
+
+    public function rolePermissions(): string
+    {
+        $permissions = service('permissions');
+        $selectedRole = $permissions->normalizeRole((string) ($this->request->getGet('role') ?: 'admin_spmb'));
+
+        if ($selectedRole === 'super_admin') {
+            $selectedRole = 'admin_spmb';
+        }
+
+        return view('dashboard/role_permissions/index', [
+            'roles' => $permissions->getRoles(),
+            'assignableRoles' => $permissions->getAssignableRoles(),
+            'menus' => $permissions->getMenus(),
+            'adminUsers' => $permissions->getAdminUsers(),
+            'selectedRole' => $selectedRole,
+            'rolePermissions' => $permissions->getPermissionsByRole($selectedRole),
+        ]);
+    }
+
+    public function updateRolePermissions(): RedirectResponse
+    {
+        $permissions = service('permissions');
+        $role = $permissions->normalizeRole((string) $this->request->getPost('role'));
+
+        if ($role === 'super_admin') {
+            return redirect()->to(site_url('dashboard/hak-akses'))->with('error', 'Permission Super Admin dikunci agar selalu memiliki akses penuh.');
+        }
+
+        $permissions->updateRolePermissions($role, (array) $this->request->getPost('permissions'));
+
+        return redirect()->to(site_url('dashboard/hak-akses?role=' . $role))->with('success', 'Hak akses role berhasil diperbarui.');
+    }
+
+    public function storeAdminRole(): RedirectResponse
+    {
+        try {
+            $role = service('permissions')->createRole(
+                (string) $this->request->getPost('name'),
+                (string) $this->request->getPost('description')
+            );
+        } catch (\InvalidArgumentException $exception) {
+            return redirect()->back()->withInput()->with('error', $exception->getMessage());
+        }
+
+        return redirect()->to(site_url('dashboard/hak-akses?role=' . $role))->with('success', 'Role baru berhasil ditambahkan. Silakan centang hak aksesnya.');
+    }
+
+    public function storeAdminUser(): RedirectResponse
+    {
+        try {
+            service('permissions')->createAdminUser(
+                (string) $this->request->getPost('name'),
+                (string) $this->request->getPost('email'),
+                (string) $this->request->getPost('password'),
+                (string) $this->request->getPost('role')
+            );
+        } catch (\InvalidArgumentException $exception) {
+            return redirect()->back()->withInput()->with('error', $exception->getMessage());
+        }
+
+        return redirect()->to(site_url('dashboard/hak-akses#users'))->with('success', 'User admin baru berhasil ditambahkan.');
+    }
+
+    public function updateAdminUser(int $id): RedirectResponse
+    {
+        try {
+            service('permissions')->updateAdminUser(
+                $id,
+                (string) $this->request->getPost('name'),
+                (string) $this->request->getPost('email'),
+                (string) $this->request->getPost('role'),
+                (string) $this->request->getPost('password')
+            );
+        } catch (\InvalidArgumentException $exception) {
+            return redirect()->back()->withInput()->with('error', $exception->getMessage());
+        }
+
+        return redirect()->to(site_url('dashboard/hak-akses#users'))->with('success', 'User admin berhasil diperbarui.');
     }
 
     private function getDashboardSummary(): array
@@ -864,11 +946,265 @@ class Dashboard extends BaseController
         return $dompdf->output();
     }
 
+    private function getDashboardLogoDataUri(): string
+    {
+        $logoPath = FCPATH . 'assets/images/logo-yapas.png';
+
+        if (!is_file($logoPath)) {
+            return '';
+        }
+
+        $contents = file_get_contents($logoPath);
+
+        if ($contents === false) {
+            return '';
+        }
+
+        return 'data:image/png;base64,' . base64_encode($contents);
+    }
+
+    private function buildNaiveBayesMetricChartHtml(array $perClass, string $format = 'pdf'): string
+    {
+        if (!$perClass) {
+            return '';
+        }
+
+        if ($format === 'excel') {
+            $html = '
+                <table>
+                    <tr><td class="section" colspan="4">Grafik Metrik Per Intent</td></tr>
+                    <tr>
+                        <th>Intent</th>
+                        <th>Precision</th>
+                        <th>Recall</th>
+                        <th>F1-score</th>
+                    </tr>';
+
+            foreach ($perClass as $intent => $metrics) {
+                $precision = max(0, min(1, (float) ($metrics['precision'] ?? 0)));
+                $recall = max(0, min(1, (float) ($metrics['recall'] ?? 0)));
+                $f1 = max(0, min(1, (float) ($metrics['f1'] ?? 0)));
+
+                $html .= '
+                    <tr>
+                        <td>' . esc($intent) . '</td>
+                        <td><div class="excel-bar-track"><div class="excel-bar precision" style="width: ' . esc((string) round($precision * 100, 2)) . '%;"></div></div> ' . esc(number_format($precision * 100, 2)) . '%</td>
+                        <td><div class="excel-bar-track"><div class="excel-bar recall" style="width: ' . esc((string) round($recall * 100, 2)) . '%;"></div></div> ' . esc(number_format($recall * 100, 2)) . '%</td>
+                        <td><div class="excel-bar-track"><div class="excel-bar f1" style="width: ' . esc((string) round($f1 * 100, 2)) . '%;"></div></div> ' . esc(number_format($f1 * 100, 2)) . '%</td>
+                    </tr>';
+            }
+
+            return $html . '</table>';
+        }
+
+        $chartImage = $this->buildNaiveBayesMetricChartImage($perClass);
+
+        return '
+            <div class="metric-chart">
+                <img class="metric-chart-image" src="' . esc($chartImage, 'attr') . '" alt="Grafik metrik per intent">
+            </div>';
+    }
+
+    private function buildNaiveBayesAccuracyChartHtml(float $accuracy, string $format = 'pdf'): string
+    {
+        $accuracy = max(0, min(1, $accuracy));
+        $accuracyPercent = number_format($accuracy * 100, 2);
+
+        if ($format === 'excel') {
+            return '
+                <table>
+                    <tr><td class="section" colspan="2">Diagram Akurasi Model</td></tr>
+                    <tr>
+                        <th>Metrik</th>
+                        <th>Nilai</th>
+                    </tr>
+                    <tr>
+                        <td>Accuracy</td>
+                        <td><div class="excel-bar-track"><div class="excel-bar accuracy" style="width: ' . esc((string) round($accuracy * 100, 2)) . '%;"></div></div> ' . esc($accuracyPercent) . '%</td>
+                    </tr>
+                </table>';
+        }
+
+        $chartImage = $this->buildNaiveBayesAccuracyChartImage($accuracy);
+
+        if ($chartImage === '') {
+            return '';
+        }
+
+        return '
+            <div class="metric-chart accuracy-chart">
+                <img class="metric-chart-image" src="' . esc($chartImage, 'attr') . '" alt="Diagram akurasi model">
+            </div>';
+    }
+
+    private function buildNaiveBayesAccuracyChartImage(float $accuracy): string
+    {
+        if (!function_exists('imagecreatetruecolor')) {
+            return '';
+        }
+
+        $accuracy = max(0, min(1, $accuracy));
+        $width = 1200;
+        $height = 430;
+        $plotLeft = 115;
+        $plotTop = 62;
+        $plotRight = 48;
+        $plotBottom = 82;
+        $plotWidth = $width - $plotLeft - $plotRight;
+        $plotHeight = $height - $plotTop - $plotBottom;
+        $image = imagecreatetruecolor($width, $height);
+        imageantialias($image, true);
+
+        $color = function (string $hex) use ($image): int {
+            $hex = ltrim($hex, '#');
+
+            return imagecolorallocate(
+                $image,
+                hexdec(substr($hex, 0, 2)),
+                hexdec(substr($hex, 2, 2)),
+                hexdec(substr($hex, 4, 2))
+            );
+        };
+
+        $white = $color('#ffffff');
+        $ink = $color('#0d2f4f');
+        $muted = $color('#64748b');
+        $grid = $color('#e3edf5');
+        $axis = $color('#9fb3c8');
+        $bar = $color('#2f75b5');
+
+        imagefilledrectangle($image, 0, 0, $width, $height, $white);
+
+        $percentText = number_format($accuracy * 100, 2) . '%';
+        imagestring($image, 5, (int) (($width - strlen($percentText) * imagefontwidth(5)) / 2), 14, $percentText, $ink);
+        imagestring($image, 3, (int) (($width - strlen('Model Accuracy') * imagefontwidth(3)) / 2), 36, 'Model Accuracy', $muted);
+        imagestringup($image, 3, 28, (int) ($plotTop + ($plotHeight / 2) + 45), 'Accuracy (%)', $muted);
+
+        for ($tick = 0; $tick <= 100; $tick += 20) {
+            $y = (int) round($plotTop + $plotHeight - (($tick / 100) * $plotHeight));
+            imageline($image, $plotLeft, $y, $width - $plotRight, $y, $tick === 0 ? $axis : $grid);
+            imagestring($image, 2, $plotLeft - 42, $y - 7, (string) $tick, $muted);
+        }
+
+        imageline($image, $plotLeft, $plotTop, $plotLeft, $plotTop + $plotHeight, $axis);
+        imageline($image, $plotLeft, $plotTop + $plotHeight, $width - $plotRight, $plotTop + $plotHeight, $axis);
+
+        $barWidth = (int) ($plotWidth * 0.86);
+        $x1 = (int) ($plotLeft + (($plotWidth - $barWidth) / 2));
+        $x2 = $x1 + $barWidth;
+        $barHeight = (int) round($accuracy * $plotHeight);
+        $y1 = $plotTop + $plotHeight - $barHeight;
+        imagefilledrectangle($image, $x1, $y1, $x2, $plotTop + $plotHeight, $bar);
+        imagestring($image, 3, (int) (($width - strlen('Accuracy') * imagefontwidth(3)) / 2), $height - 48, 'Accuracy', $ink);
+
+        ob_start();
+        imagepng($image);
+        $png = ob_get_clean();
+        imagedestroy($image);
+
+        return 'data:image/png;base64,' . base64_encode($png === false ? '' : $png);
+    }
+
+    private function buildNaiveBayesMetricChartImage(array $perClass): string
+    {
+        if (!function_exists('imagecreatetruecolor')) {
+            return '';
+        }
+
+        $width = 1600;
+        $height = 620;
+        $plotLeft = 90;
+        $plotTop = 70;
+        $plotRight = 40;
+        $plotBottom = 170;
+        $plotWidth = $width - $plotLeft - $plotRight;
+        $plotHeight = $height - $plotTop - $plotBottom;
+        $image = imagecreatetruecolor($width, $height);
+        imageantialias($image, true);
+
+        $color = function (string $hex) use ($image): int {
+            $hex = ltrim($hex, '#');
+
+            return imagecolorallocate(
+                $image,
+                hexdec(substr($hex, 0, 2)),
+                hexdec(substr($hex, 2, 2)),
+                hexdec(substr($hex, 4, 2))
+            );
+        };
+
+        $white = $color('#ffffff');
+        $ink = $color('#0d2f4f');
+        $muted = $color('#64748b');
+        $grid = $color('#e3edf5');
+        $axis = $color('#9fb3c8');
+        $precisionColor = $color('#104f86');
+        $recallColor = $color('#2f75b5');
+        $f1Color = $color('#5f9ea0');
+
+        imagefilledrectangle($image, 0, 0, $width, $height, $white);
+        imagestring($image, 5, (int) (($width - strlen('Precision, Recall, dan F1-score per Intent') * imagefontwidth(5)) / 2), 24, 'Precision, Recall, dan F1-score per Intent', $ink);
+        imagestringup($image, 3, 18, (int) ($plotTop + ($plotHeight / 2) + 45), 'Score (%)', $muted);
+
+        for ($tick = 0; $tick <= 100; $tick += 10) {
+            $y = (int) round($plotTop + $plotHeight - (($tick / 100) * $plotHeight));
+            imageline($image, $plotLeft, $y, $width - $plotRight, $y, $tick === 0 ? $axis : $grid);
+            imagestring($image, 2, $plotLeft - 42, $y - 7, (string) $tick, $muted);
+        }
+
+        $intentCount = max(1, count($perClass));
+        $groupWidth = $plotWidth / $intentCount;
+        $barWidth = (int) min(22, max(10, (($groupWidth - 28) / 3)));
+        $seriesGap = 4;
+        $index = 0;
+
+        foreach ($perClass as $intent => $metrics) {
+            $values = [
+                ['value' => max(0, min(1, (float) ($metrics['precision'] ?? 0))), 'color' => $precisionColor],
+                ['value' => max(0, min(1, (float) ($metrics['recall'] ?? 0))), 'color' => $recallColor],
+                ['value' => max(0, min(1, (float) ($metrics['f1'] ?? 0))), 'color' => $f1Color],
+            ];
+            $groupStart = $plotLeft + ($index * $groupWidth);
+            $groupCenter = $groupStart + ($groupWidth / 2);
+            $barsWidth = (3 * $barWidth) + (2 * $seriesGap);
+            $barStart = (int) round($groupCenter - ($barsWidth / 2));
+
+            foreach ($values as $seriesIndex => $item) {
+                $barHeight = (int) round($item['value'] * $plotHeight);
+                $x1 = $barStart + ($seriesIndex * ($barWidth + $seriesGap));
+                $x2 = $x1 + $barWidth;
+                $y1 = $plotTop + $plotHeight - $barHeight;
+                imagefilledrectangle($image, $x1, $y1, $x2, $plotTop + $plotHeight, $item['color']);
+            }
+
+            $label = (string) $intent;
+            imagestringup($image, 2, (int) round($groupCenter - 4), $height - 55, $label, $ink);
+            $index++;
+        }
+
+        $legendY = $height - 28;
+        $legendX = $width - 390;
+        imagefilledrectangle($image, $legendX, $legendY - 3, $legendX + 14, $legendY + 11, $precisionColor);
+        imagestring($image, 3, $legendX + 22, $legendY - 4, 'Precision', $ink);
+        imagefilledrectangle($image, $legendX + 130, $legendY - 3, $legendX + 144, $legendY + 11, $recallColor);
+        imagestring($image, 3, $legendX + 152, $legendY - 4, 'Recall', $ink);
+        imagefilledrectangle($image, $legendX + 235, $legendY - 3, $legendX + 249, $legendY + 11, $f1Color);
+        imagestring($image, 3, $legendX + 257, $legendY - 4, 'F1-score', $ink);
+
+        ob_start();
+        imagepng($image);
+        $png = ob_get_clean();
+        imagedestroy($image);
+
+        return 'data:image/png;base64,' . base64_encode($png === false ? '' : $png);
+    }
+
     private function buildNaiveBayesEvaluationExcel(array $evaluation): string
     {
         $summary = $evaluation['summary'] ?? [];
         $perClass = $evaluation['per_class'] ?? [];
         $confusionMatrix = $evaluation['confusion_matrix'] ?? [];
+        $logoDataUri = $this->getDashboardLogoDataUri();
         $formatPercent = static fn ($value): string => number_format(((float) $value) * 100, 2) . '%';
         $html = '
             <html>
@@ -880,11 +1216,21 @@ class Dashboard extends BaseController
                     th, td { border: 1px solid #b7c9d9; padding: 7px 9px; text-align: left; }
                     .title { background: #0d2f4f; color: #ffffff; font-size: 18px; font-weight: bold; }
                     .section { background: #edf6fb; color: #104f86; font-weight: bold; }
+                    .excel-bar-track { background: #eef2f7; display: inline-block; height: 12px; margin-right: 8px; vertical-align: middle; width: 120px; }
+                    .excel-bar { display: block; height: 12px; }
+                    .precision { background: #104f86; }
+                    .recall { background: #2f75b5; }
+                    .f1 { background: #5f9ea0; }
+                    .accuracy { background: #2f75b5; }
+                    .report-logo { height: 54px; width: 54px; }
                 </style>
             </head>
             <body>
                 <table>
-                    <tr><td class="title" colspan="2">Hasil Pengujian Naive Bayes</td></tr>
+                    <tr>
+                        <td class="title" colspan="2">' . ($logoDataUri !== '' ? '<img class="report-logo" src="' . esc($logoDataUri, 'attr') . '" alt="Logo SMPS Plus Fajar Sentosa">' : '') . '</td>
+                        <td class="title" colspan="2">Hasil Pengujian Naive Bayes<br>SMPS Plus Fajar Sentosa</td>
+                    </tr>
                     <tr><td>Metode</td><td>Hold Out 80% data latih / 20% data uji</td></tr>
                     <tr><td>Tanggal Uji</td><td>' . esc($evaluation['evaluated_at'] ?? '-') . '</td></tr>
                 </table>
@@ -901,6 +1247,10 @@ class Dashboard extends BaseController
                     <tr><td>Weighted F1</td><td>' . esc($formatPercent($summary['weighted_f1'] ?? 0)) . '</td></tr>
                     <tr><td>Prediksi Unknown</td><td>' . esc((string) ($summary['unmatched_predictions'] ?? 0)) . '</td></tr>
                 </table>
+
+                ' . $this->buildNaiveBayesAccuracyChartHtml((float) ($summary['accuracy'] ?? 0), 'excel') . '
+
+                ' . $this->buildNaiveBayesMetricChartHtml($perClass, 'excel') . '
 
                 <table>
                     <tr><td class="section" colspan="5">Metrik Per Intent</td></tr>
@@ -961,6 +1311,7 @@ class Dashboard extends BaseController
         $summary = $evaluation['summary'] ?? [];
         $perClass = $evaluation['per_class'] ?? [];
         $confusionMatrix = $evaluation['confusion_matrix'] ?? [];
+        $logoDataUri = $this->getDashboardLogoDataUri();
         $formatPercent = static fn ($value): string => number_format(((float) $value) * 100, 2) . '%';
         $labels = array_keys($confusionMatrix);
         $html = '
@@ -971,40 +1322,67 @@ class Dashboard extends BaseController
                 <style>
                     @page { margin: 34px 36px; }
                     body { color: #172033; font-family: "DejaVu Sans", sans-serif; font-size: 11px; line-height: 1.45; }
-                    .header { background: #0f766e; border-radius: 14px; color: #fff; padding: 22px 24px; }
+                    .header { background: #104f86; border-radius: 14px; color: #fff; padding: 18px 22px; }
+                    .header-table { border-collapse: collapse; width: 100%; }
+                    .header-table td { border: 0; padding: 0; vertical-align: middle; }
+                    .header-logo-cell { width: 70px; }
+                    .header-logo { background: #fff; border-radius: 999px; height: 56px; padding: 6px; width: 56px; }
                     .eyebrow { font-size: 10px; letter-spacing: 1px; margin: 0 0 5px; text-transform: uppercase; }
                     h1 { font-size: 24px; line-height: 1.1; margin: 0 0 8px; }
-                    .subtitle { color: #d9fffa; margin: 0; }
+                    .subtitle { color: #dcecff; margin: 0; }
                     .meta { margin-top: 14px; }
                     .meta span { background: rgba(255,255,255,.14); border-radius: 999px; display: inline-block; margin: 0 6px 6px 0; padding: 5px 10px; }
-                    h2 { border-bottom: 2px solid #dbe7e5; color: #0f766e; font-size: 15px; margin: 24px 0 12px; padding-bottom: 6px; }
+                    h2 { border-bottom: 2px solid #dbe7e5; color: #104f86; font-size: 15px; margin: 24px 0 12px; padding-bottom: 6px; }
                     .metric-grid { width: 100%; border-collapse: separate; border-spacing: 8px; margin: 16px -8px 6px; }
-                    .metric { background: #f4fbfa; border: 1px solid #cfe6e3; border-radius: 10px; padding: 12px; }
+                    .metric { background: #f4f8fb; border: 1px solid #cfe0ef; border-radius: 10px; padding: 12px; }
                     .metric span { color: #5b6b7a; display: block; font-size: 9px; margin-bottom: 5px; text-transform: uppercase; }
-                    .metric strong { color: #0f3f3a; display: block; font-size: 18px; }
+                    .metric strong { color: #0d2f4f; display: block; font-size: 18px; }
                     table.data { border-collapse: collapse; margin-top: 8px; table-layout: fixed; width: 100%; }
-                    table.data th { background: #e7f3f1; color: #0f3f3a; font-size: 10px; text-align: left; }
+                    table.data th { background: #edf6fb; color: #0d2f4f; font-size: 10px; text-align: left; }
                     table.data th, table.data td { border: 1px solid #d7e2e0; padding: 7px 8px; vertical-align: top; }
                     table.data tr:nth-child(even) td { background: #fafdfd; }
                     table.matrix { font-size: 8px; page-break-inside: avoid; }
                     table.matrix th, table.matrix td { padding: 5px 4px; text-align: center; word-break: break-word; }
                     table.matrix th:first-child, table.matrix td:first-child { text-align: left; width: 130px; }
-                    .intent { background: #eef2ff; border-radius: 999px; color: #3730a3; display: inline-block; font-size: 10px; padding: 3px 7px; }
+                    .intent { background: #e8f0f6; border-radius: 999px; color: #104f86; display: inline-block; font-size: 10px; padding: 3px 7px; }
                     table.matrix .intent { border-radius: 6px; font-size: 8px; padding: 2px 4px; }
                     .matrix-note { color: #64748b; font-size: 9px; margin: -4px 0 8px; }
+                    .metric-chart { border: 1px solid #d7e2e0; border-radius: 12px; margin: 8px 0 16px; padding: 14px 14px 10px; page-break-inside: avoid; }
+                    .metric-chart-image { display: block; height: auto; width: 100%; }
+                    .accuracy-chart { padding: 10px; }
+                    .chart-title { color: #0d2f4f; font-size: 11px; font-weight: bold; margin-bottom: 10px; text-align: center; }
+                    .chart-table { border-collapse: collapse; table-layout: fixed; width: 100%; }
+                    .chart-table td { border: 0; padding: 0 3px; vertical-align: bottom; }
+                    .chart-group { height: 198px; text-align: center; }
+                    .chart-bars { border-bottom: 1px solid #cbd5e1; height: 154px; margin: 0 auto 5px; white-space: nowrap; }
+                    .chart-bar { display: inline-block; margin: 0 1px; vertical-align: bottom; width: 7px; }
+                    .chart-bar.precision, .chart-legend .precision { background: #104f86; }
+                    .chart-bar.recall, .chart-legend .recall { background: #2f75b5; }
+                    .chart-bar.f1, .chart-legend .f1 { background: #5f9ea0; }
+                    .chart-label { color: #334155; font-size: 7px; line-height: 1.15; word-break: break-word; }
+                    .chart-legend { color: #334155; font-size: 9px; margin-top: 8px; text-align: right; }
+                    .chart-legend span { display: inline-block; margin-left: 12px; }
+                    .chart-legend i { display: inline-block; height: 8px; margin-right: 4px; vertical-align: middle; width: 8px; }
                     .footer { border-top: 1px solid #dbe7e5; color: #718096; font-size: 9px; margin-top: 24px; padding-top: 10px; text-align: right; }
                 </style>
             </head>
             <body>
                 <div class="header">
-                    <p class="eyebrow">Laporan Evaluasi Dataset Chatbot</p>
-                    <h1>Hasil Pengujian Naive Bayes</h1>
-                    <p class="subtitle">Metode hold out dengan 80% data latih dan 20% data uji.</p>
-                    <div class="meta">
-                        <span>Tanggal uji: ' . esc($evaluation['evaluated_at'] ?? '-') . '</span>
-                        <span>Intent: ' . esc((string) ($summary['intent_count'] ?? 0)) . '</span>
-                        <span>Data uji: ' . esc((string) ($summary['test_samples'] ?? 0)) . '</span>
-                    </div>
+                    <table class="header-table">
+                        <tr>
+                            <td class="header-logo-cell">' . ($logoDataUri !== '' ? '<img class="header-logo" src="' . esc($logoDataUri, 'attr') . '" alt="Logo SMPS Plus Fajar Sentosa">' : '') . '</td>
+                            <td>
+                                <p class="eyebrow">Laporan Evaluasi Dataset Chatbot</p>
+                                <h1>Hasil Pengujian Naive Bayes</h1>
+                                <p class="subtitle">SMPS Plus Fajar Sentosa - Metode hold out dengan 80% data latih dan 20% data uji.</p>
+                                <div class="meta">
+                                    <span>Tanggal uji: ' . esc($evaluation['evaluated_at'] ?? '-') . '</span>
+                                    <span>Intent: ' . esc((string) ($summary['intent_count'] ?? 0)) . '</span>
+                                    <span>Data uji: ' . esc((string) ($summary['test_samples'] ?? 0)) . '</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
                 </div>
 
                 <table class="metric-grid">
@@ -1020,7 +1398,11 @@ class Dashboard extends BaseController
                     </tr>
                 </table>
 
+                <h2>Diagram Akurasi Model</h2>
+                ' . $this->buildNaiveBayesAccuracyChartHtml((float) ($summary['accuracy'] ?? 0)) . '
+
                 <h2>Metrik Per Intent</h2>
+                ' . $this->buildNaiveBayesMetricChartHtml($perClass) . '
                 <table class="data">
                     <thead>
                         <tr>

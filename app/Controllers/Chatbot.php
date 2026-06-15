@@ -9,23 +9,58 @@ class Chatbot extends ResourceController
 {
     protected $format = 'json';
 
+    private const MIN_INTENT_SCORE = 0.16;
+    private const MIN_MATCHED_TOKEN_RATIO = 0.5;
+
     private ?array $nlpRules = null;
+    private array $intentStopWords = [
+        'ada',
+        'atau',
+        'belum',
+        'bisa',
+        'dan',
+        'dengan',
+        'disini',
+        'ini',
+        'itu',
+        'jadi',
+        'juga',
+        'kalau',
+        'kenapa',
+        'kok',
+        'lagi',
+        'mau',
+        'nggak',
+        'tidak',
+        'untuk',
+        'yang',
+    ];
 
     private function normalizeText(string $text): string
     {
+        // Case folding: mengubah seluruh teks menjadi huruf kecil.
         $text = strtolower(trim($text));
+
+        // Cleaning: menghapus tanda baca di akhir kalimat.
         $text = preg_replace('/[?!.]+$/', '', $text);
+
+        // Cleaning: mengganti karakter selain huruf, angka, dan spasi dengan spasi.
         $text = preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', $text);
 
+        // Cleaning: merapikan spasi berlebih menjadi satu spasi.
         return trim(preg_replace('/\s+/', ' ', $text));
     }
 
     private function tokenize(string $text): array
     {
+        // Tokenisasi: memecah teks hasil normalisasi menjadi token-token kata.
         $tokens = preg_split('/\s+/', $this->normalizeText($text), -1, PREG_SPLIT_NO_EMPTY);
+
+        // Normalisasi token: menyamakan sinonim dan menghapus akhiran sederhana.
         $tokens = array_map(fn ($token) => $this->normalizeToken($token), $tokens ?: []);
         $rules = $this->getNlpRules();
 
+        // Stopword removal: menghapus kata umum yang tersimpan pada aturan stopword.
         return array_values(array_filter($tokens, fn ($token) => !in_array($token, $rules['stopWords'], true)));
     }
 
@@ -33,10 +68,12 @@ class Chatbot extends ResourceController
     {
         $rules = $this->getNlpRules();
 
+        // Normalisasi sinonim: mengganti kata dengan bentuk standar jika ada di data sinonim.
         if (isset($rules['synonyms'][$token])) {
             return $rules['synonyms'][$token];
         }
 
+        // Stemming sederhana: menghapus akhiran yang tersimpan pada aturan suffix.
         foreach ($rules['suffixes'] as $suffix) {
             if (strlen($token) > strlen($suffix) + 3 && str_ends_with($token, $suffix)) {
                 $token = substr($token, 0, -strlen($suffix));
@@ -141,11 +178,16 @@ class Chatbot extends ResourceController
 
     private function findCountVectorizerAnswer(string $message, array $model): ?string
     {
-        $queryTokens = array_values(array_filter($this->tokenize($message), fn ($token) => strlen($token) > 2));
+        // Prediksi pertanyaan pengguna: teks pertanyaan diubah menjadi token hasil preprocessing.
+        $queryTokens = array_values(array_filter(
+            $this->tokenize($message),
+            fn ($token) => strlen($token) > 2 && !in_array($token, $this->intentStopWords, true)
+        ));
         if (!$queryTokens) {
             return null;
         }
 
+        // Representasi fitur: token pertanyaan pengguna diubah menjadi vektor frekuensi kata.
         $queryVector = [];
         foreach ($queryTokens as $token) {
             $queryVector[$token] = ($queryVector[$token] ?? 0) + 1;
@@ -159,6 +201,7 @@ class Chatbot extends ResourceController
         $bestScore = 0.0;
         $bestMatchedTokens = 0;
 
+        // Proses prediksi intent: membandingkan vektor pertanyaan dengan seluruh vektor intent.
         foreach ($model['intents'] as $intent => $intentData) {
             $intentVector = $intentData['vector'] ?? [];
             $matchedTokens = 0;
@@ -184,9 +227,11 @@ class Chatbot extends ResourceController
                 continue;
             }
 
+            // Menghitung nilai kemiripan antara pertanyaan pengguna dan intent menggunakan Cosine Similarity.
             $score = $dot / (sqrt($queryMagnitude) * sqrt($intentMagnitude));
             $score += ((int) ($intentData['priority'] ?? 0)) / 100000;
 
+            // Menentukan intent terbaik berdasarkan skor kemiripan tertinggi.
             if ($score > $bestScore) {
                 $bestScore = $score;
                 $bestIntent = $intent;
@@ -198,6 +243,13 @@ class Chatbot extends ResourceController
             return null;
         }
 
+        $matchedTokenRatio = $bestMatchedTokens / max(1, count($queryTokens));
+
+        if ($bestScore < self::MIN_INTENT_SCORE || $matchedTokenRatio < self::MIN_MATCHED_TOKEN_RATIO) {
+            return null;
+        }
+
+        // Mengambil jawaban dari intent yang diprediksi paling sesuai dengan pertanyaan pengguna.
         return $model['intents'][$bestIntent]['response'] ?: null;
     }
 
